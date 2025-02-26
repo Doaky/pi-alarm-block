@@ -1,0 +1,60 @@
+    1  ls
+    2  ls -la
+    3  mkdir git
+    4  ls
+    5  cd git/
+    6  code -intall-extension ms-vscode-remote.remote-wsl
+    7  git clone https://github.com/Doaky/alarm-block.git
+    8  ls
+    9  cd alarm-block/
+   10  sudo apt update && sudo apt upgrade -y
+   11  sudo apt install -y python3-pip python3-venv nginx aplay
+   12  sudo apt update
+   13  sudo apt install -y alsa-utils
+   14  aplay --version
+   15  pip3 install fastapi uvicorn RPi.GPIO
+   16  sudo apt install -y python3-pip
+   17  pip3 --version
+   18  pip3 install fastapi uvicorn RPi.GPIO
+   19  apt install
+   20  sudo  apt install
+   21  sudo apt install python3-uvicorn
+   22  sudo apt install python3-RPi.GPIO
+   23  curl -fsSL https://deb.nodesource.com/setup_18.x | sudo bash -
+   24  sudo apt install -y nodejs
+   25  npm install -g vite
+   26  sudo npm install -g vite
+   27  sudo npm install -g npm
+   28  sudo npm install -g vite
+   29  mkdir backend && cd backend
+   30  ..
+   31  cd ..
+   32  npx create-vite frontend --template react
+   33  cd frontend/
+   34  npm i
+   35  cd ..
+   36  ls
+   37  npx create-vite frontend
+   38  cd frontend/
+   39  npm i
+   40  cd ..
+   41  ./start.sh
+   42  chmod +x start.sh
+   43  ./start.sh
+   44  uvicorn
+   45  sudo apt install uvicorn
+   46  ./start.sh
+   47  pip3 install fastapi uvicorn
+   48  python3 -m venv venv
+   49  sudo python3 -m venv venv
+   50  sudo apt install python3.12-venv
+   51  history 100
+   52  python3.12 -m venv venv
+   53  source venv/bin/activate
+   54  pip install fastapi uvicorn
+   55  uvicorn main:app --host 0.0.0.0 --port 8000
+   56  ./start.sh
+   57  pip install RPi.GPIO
+   58  ./start.sh
+   59  history 100
+   60  history 100 > history.txt
