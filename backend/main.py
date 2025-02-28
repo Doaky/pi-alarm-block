@@ -7,12 +7,13 @@ from backend.alarm import Alarm
 from backend.alarm_manager import AlarmManager
 from backend.alarm_scheduler import AlarmScheduler
 from backend.settings_manager import SettingsManager
-from backend.pi_handler import play_alarm, stop_alarm
+from backend.pi_handler import PiHandler, play_alarm, stop_alarm
 
 app = FastAPI()
 
 settings_manager = SettingsManager()
 alarm_manager = AlarmManager(settings_manager)
+pi_handler = PiHandler()
 
 # Serve React frontend
 app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="frontend")

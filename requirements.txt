@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+RPi.GPIO
+gpiozero
+pygame
+apscheduler
