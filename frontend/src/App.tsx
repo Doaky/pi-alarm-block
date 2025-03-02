@@ -24,10 +24,26 @@ const App = () => {
         });
     };
 
+    const playAlarm = () => {
+        fetch("/play-alarm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+    };
+
+    const stopAlarm = () => {
+        fetch("/stop-alarm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+    };
+
     return (
         <div>
             <h1>Alarm Manager</h1>
             <button onClick={setAlarm}>Set Alarm</button>
+            <button onClick={playAlarm}>Play Alarm</button>
+            <button onClick={stopAlarm}>Stop Alarm</button>
             <ul>
                 {alarms.map((a, index) => (
                     <li key={index}>{a.hour}:{a.minute}</li>

@@ -1,13 +1,14 @@
 import json
 from typing import Dict, List
 from backend.alarm import Alarm
-from backend.pi_handler import play_alarm
+from backend.pi_handler import PiHandler
 from backend.settings_manager import SettingsManager
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 class AlarmManager:
-    def __init__(self, settings_manager: SettingsManager, file_path: str = "data/alarms.json"):
+    def __init__(self, pi_handler: PiHandler, settings_manager: SettingsManager, file_path: str = "data/alarms.json"):
+        self.pi_handler = pi_handler
         self.settings_manager = settings_manager
         self.file_path = file_path
 
@@ -99,5 +100,5 @@ class AlarmManager:
         print(f"Alarm Triggered: {alarm.hour}:{alarm.minute} - Primary: {alarm.is_primary_schedule}")
         
         # Call function to play the sound
-        play_alarm()
+        self.pi_handler.play_alarm()
 

@@ -3,7 +3,7 @@ import random
 import time
 from time import sleep
 import pygame
-from gpiozero import RotaryEncoder, Button, Switch
+from gpiozero import RotaryEncoder, Button
 from threading import Thread
 
 class PiHandler:
@@ -22,12 +22,12 @@ class PiHandler:
         self.white_noise_playing = False
 
         # Setup GPIO for Rotary Encoder and Button (for volume control and white noise toggle)
-        self.rotary_encoder = RotaryEncoder(17, 18)  # GPIO pins for rotary encoder
-        self.encoder_button = Button(23)  # GPIO pin for rotary encoder button
+        self.rotary_encoder = RotaryEncoder(26, 6)  # GPIO pins for rotary encoder
+        self.encoder_button = Button(13)  # GPIO pin for rotary encoder button
 
         # Setup GPIO switches for toggling schedule and global on/off
-        self.schedule_switch = Switch(24)  # GPIO pin for schedule switch (toggles is_primary_schedule)
-        self.global_switch = Switch(25)  # GPIO pin for global status switch (toggles is_global_on)
+        self.schedule_switch = Button(24)  # GPIO pin for schedule switch (toggles is_primary_schedule)
+        self.global_switch = Button(25)  # GPIO pin for global status switch (toggles is_global_on)
 
         # Bind events for rotary encoder, button, and switches
         self._setup_rotary_encoder()
@@ -45,6 +45,7 @@ class PiHandler:
 
     def _on_rotary_rotated(self):
         """Handle the rotary encoder rotation to adjust the volume."""
+        print(f"Encoder Rotated" {self.rotary_encoder.direction})
         if self.rotary_encoder.direction == 'clockwise' and self.white_noise_volume < 1.0:
             self.white_noise_volume += 0.05  # Increase volume by 5%
         elif self.rotary_encoder.direction == 'counterclockwise' and self.white_noise_volume > 0.05:
@@ -56,6 +57,7 @@ class PiHandler:
 
     def _on_rotary_button_pressed(self):
         """Toggle the playback of white noise when the rotary encoder button is pressed."""
+        print(f"Encoder Pressed")
         if self.white_noise_playing:
             self.stop_white_noise()
         else:
@@ -81,6 +83,7 @@ class PiHandler:
 
     def play_white_noise(self):
         """Play the white noise sound file in a loop."""
+        print(f"White noise playing")
         self.white_noise_playing = True
         pygame.mixer.music.load(self.white_noise_file)
         pygame.mixer.music.set_volume(self.white_noise_volume)
@@ -88,6 +91,7 @@ class PiHandler:
 
     def stop_white_noise(self):
         """Stop the white noise playback."""
+        print(f"White noise stop")
         self.white_noise_playing = False
         pygame.mixer.music.stop()
 

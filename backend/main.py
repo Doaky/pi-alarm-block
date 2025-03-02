@@ -3,9 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from typing import List
 
-from backend.alarm import Alarm
 from backend.alarm_manager import AlarmManager
-from backend.alarm_scheduler import AlarmScheduler
 from backend.settings_manager import SettingsManager
 from backend.pi_handler import PiHandler, play_alarm, stop_alarm
 
