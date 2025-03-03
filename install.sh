@@ -8,6 +8,8 @@
 # python3 -m venv venv
 # source venv/bin/activate
 # sudo apt install nodejs npm -y
+# sudo apt install python3-lgpio
+
 # uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload 
 
 # Make sure the script is being run as root (sudo)

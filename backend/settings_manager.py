@@ -1,7 +1,7 @@
 import json
 
 class SettingsManager:
-    def __init__(self, file_path="data/settings.json"):
+    def __init__(self, file_path="/data/settings.json"):
         self.file_path = file_path
         self.settings = self.load_settings()
 
