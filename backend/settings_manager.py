@@ -11,7 +11,7 @@ class SettingsManager:
             with open(self.file_path, "r") as file:
                 return json.load(file)
         except (OSError):
-            print("Could not open/read file: ", file,"\n Defaulting to Primary/On")
+            print("Could not open/read file: ", self.file_path,"\n Defaulting to Primary/On")
             return {"schedule": "Primary", "global_status": "On"}
 
     def save_settings(self, settings):

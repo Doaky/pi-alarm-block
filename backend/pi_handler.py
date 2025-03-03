@@ -45,7 +45,7 @@ class PiHandler:
 
     def _on_rotary_rotated(self):
         """Handle the rotary encoder rotation to adjust the volume."""
-        print(f"Encoder Rotated" {self.rotary_encoder.direction})
+        print(f"Encoder Rotated {self.rotary_encoder.direction}")
         if self.rotary_encoder.direction == 'clockwise' and self.white_noise_volume < 1.0:
             self.white_noise_volume += 0.05  # Increase volume by 5%
         elif self.rotary_encoder.direction == 'counterclockwise' and self.white_noise_volume > 0.05:

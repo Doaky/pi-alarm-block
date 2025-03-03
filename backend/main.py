@@ -3,15 +3,16 @@ from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from typing import List
 
-from backend.alarm_manager import AlarmManager
-from backend.settings_manager import SettingsManager
-from backend.pi_handler import PiHandler, play_alarm, stop_alarm
+from alarm import Alarm
+from alarm_manager import AlarmManager
+from settings_manager import SettingsManager
+from pi_handler import PiHandler
 
 app = FastAPI()
 
 settings_manager = SettingsManager()
-alarm_manager = AlarmManager(settings_manager)
-pi_handler = PiHandler()
+pi_handler = PiHandler(settings_manager)
+alarm_manager = AlarmManager(pi_handler, settings_manager)
 
 # Serve React frontend
 app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="frontend")

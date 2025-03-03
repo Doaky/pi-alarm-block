@@ -1,8 +1,8 @@
 import json
 from typing import Dict, List
-from backend.alarm import Alarm
-from backend.pi_handler import PiHandler
-from backend.settings_manager import SettingsManager
+from alarm import Alarm
+from pi_handler import PiHandler
+from settings_manager import SettingsManager
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
