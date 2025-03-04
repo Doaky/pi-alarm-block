@@ -1,7 +1,7 @@
 import json
 
 class SettingsManager:
-    def __init__(self, file_path="/data/settings.json"):
+    def __init__(self, file_path="data/settings.json"):
         self.file_path = file_path
         self.settings = self.load_settings()
 
@@ -9,7 +9,9 @@ class SettingsManager:
         """Load settings from JSON file."""
         try:
             with open(self.file_path, "r") as file:
-                return json.load(file)
+                settings = json.load(file)
+                print(f"Settings loaded: {settings}")
+                return settings
         except (OSError):
             print("Could not open/read file: ", self.file_path,"\n Defaulting to Primary/On")
             return {"schedule": "Primary", "global_status": "On"}
