@@ -15,7 +15,7 @@ pi_handler = PiHandler(settings_manager)
 alarm_manager = AlarmManager(pi_handler, settings_manager)
 
 # Serve React frontend
-app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="frontend")
+app.mount("/", StaticFiles(directory="../frontend/dist/", html=True), name="frontend")
 
 ### ---- ALARM MANAGEMENT ---- ###
 @app.get("/alarms")
