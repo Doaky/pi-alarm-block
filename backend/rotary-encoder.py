@@ -23,7 +23,7 @@ muted = False  # Initial mute state
 # Function to control volume using PulseAudio (pactl)
 def set_volume(level):
     """ Set the volume level using PulseAudio, ensuring it's between 0 and 100 """
-    level = max(0, min(level, 100))  # Ensure volume is between 0 and 100
+    level = max(0, min(level, 160))  # Ensure volume is between 0 and 100
     # Use pactl to set the volume of the PulseAudio sink
     subprocess.run(['pactl', 'set-sink-volume', 'alsa_output.platform-soc_sound.stereo-fallback', f'{level}%'])
 
@@ -52,7 +52,7 @@ def update_encoder(channel):
 	    counter += 5  # Rotate counter-clockwise (increase volume)
 
         # Constrain volume between 0 and 100
-        counter = max(0, min(counter, 100))
+        counter = max(0, min(counter, 160))
 
         # Set volume level and print the counter
         set_volume(counter)
