@@ -12,6 +12,8 @@
 # sudo apt update
 # sudo apt install python3-rpi.gpio
 # sudo apt-get install python3-rpi-lgpio
+# pactl -- set-sink-volume 0 150%
+#speaker-test -c2 -twav -l3
 
 
 # uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload 

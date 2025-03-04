@@ -1,5 +1,5 @@
 import os
-os.environ['SDL_AUDIODRIVER'] = 'dsp'
+# os.environ['SDL_AUDIODRIVER'] = 'dsp'
 import random
 import time
 import pygame
@@ -7,10 +7,11 @@ import RPi.GPIO as GPIO
 from threading import Thread
 
 class PiHandler:
-    def __init__(self, settings_manager, sounds_dir="sounds", white_noise_file="white_noise.mp3"):
+    def __init__(self, settings_manager, sounds_dir="sounds/", white_noise_file="white_noise.mp3"):
         # Initialize pygame mixer for sound playback
-        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
-        
+        # pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+        pygame.mixer.init()
+
         # Initialize the SettingsManager to change global and schedule settings
         self.settings_manager = settings_manager
         
@@ -98,6 +99,7 @@ class PiHandler:
         alarm_sound = pygame.mixer.Sound(alarm_path)
         alarm_sound.set_volume(self.alarm_volume)
         alarm_sound.play()
+        # pygame.mixer.music.play()
     
     def increase_alarm_volume(self):
         """Gradually increase the alarm volume to 50%."""
