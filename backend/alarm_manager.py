@@ -56,7 +56,7 @@ class AlarmManager:
                 alarms_data = json.load(file)
                 return {alarm['id']: Alarm.from_dict(alarm) for alarm in alarms_data}
         except (OSError):
-            print("Could not open/read file: ", file,"\n Defaulting to empty")
+            print("Could not open/read file: ", self.file_path,"\n Defaulting to empty")
             return {}
         
     def _schedule_add(self, alarm: Alarm):
