@@ -1,4 +1,5 @@
 import os
+os.environ['SDL_AUDIODRIVER'] = 'dsp'
 import random
 import time
 import pygame
@@ -21,6 +22,7 @@ class PiHandler:
         self.white_noise_playing = False
 
         # GPIO Setup
+        GPIO.cleanup()
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(26, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Rotary Encoder A
         GPIO.setup(6, GPIO.IN, pull_up_down=GPIO.PUD_UP)   # Rotary Encoder B

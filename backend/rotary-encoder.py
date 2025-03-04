@@ -49,7 +49,7 @@ def update_encoder(channel):
         if GPIO.input(GPIO_B) == GPIO.LOW:
             counter -= 5  # Rotate clockwise (decrease volume)
         else:
-	    counter += 5  # Rotate counter-clockwise (increase volume)
+            counter += 5  # Rotate counter-clockwise (increase volume)
 
         # Constrain volume between 0 and 100
         counter = max(0, min(counter, 100))
