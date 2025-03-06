@@ -1,22 +1,31 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from apscheduler.schedulers.background import BackgroundScheduler
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 
 from alarm import Alarm
 from alarm_manager import AlarmManager
 from settings_manager import SettingsManager
-from pi_handler import PiHandler
+# from pi_handler import PiHandler
 
 app = FastAPI()
+# Enable CORS for frontend communication
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Change to specific frontend URL in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 settings_manager = SettingsManager()
-pi_handler = PiHandler(settings_manager)
-alarm_manager = AlarmManager(pi_handler, settings_manager)
-# alarm_manager = AlarmManager(settings_manager)
+# pi_handler = PiHandler(settings_manager)
+
+# alarm_manager = AlarmManager(pi_handler, settings_manager)
+alarm_manager = AlarmManager(settings_manager)
 
 # Serve React frontend
-app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="frontend")
+app.mount("/", StaticFiles(directory="frontend/dist/", html=True), name="frontend")
 
 ### ---- ALARM MANAGEMENT ---- ###
 @app.get("/alarms")
@@ -55,13 +64,15 @@ def remove_alarms(alarm_ids: List[str]):
 @app.post("/stop-alarm")
 def stop():
     """Stops the currently playing alarm."""
-    stop_alarm()
+    print("POST /stop-alarm")
+    # stop_alarm()
     return {"message": "Alarm stopped"}
 
 @app.post("/play-alarm")
 def play():
     """Plays an alarm."""
-    play_alarm()
+    print("POST /play-alarm")
+    # play_alarm()
     return {"message": "Alarm playing"}
 
 
@@ -95,4 +106,4 @@ def set_global_status(is_global_on: bool):
 ### ---- SERVER STARTUP ---- ###
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="localhost", port=8000)

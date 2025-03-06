@@ -1,14 +1,15 @@
 import json
 from typing import Dict, List
 from alarm import Alarm
-from pi_handler import PiHandler
+# from pi_handler import PiHandler
 from settings_manager import SettingsManager
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 class AlarmManager:
-    def __init__(self, pi_handler: PiHandler, settings_manager: SettingsManager, file_path: str = "data/alarms.json"):
-        self.pi_handler = pi_handler
+    def __init__(self, settings_manager: SettingsManager, file_path: str = "backend/data/alarms.json"):
+    # def __init__(self, pi_handler: PiHandler, settings_manager: SettingsManager, file_path: str = "backend/data/alarms.json"):
+        # self.pi_handler = pi_handler
         self.settings_manager = settings_manager
         self.file_path = file_path
 
@@ -54,6 +55,7 @@ class AlarmManager:
         try:
             with open(self.file_path, "r") as file:
                 alarms_data = json.load(file)
+                print(f"Alarms loaded:\n{alarms_data}\n")
                 return {alarm['id']: Alarm.from_dict(alarm) for alarm in alarms_data}
         except (OSError):
             print("Could not open/read file: ", self.file_path,"\n Defaulting to empty")
@@ -100,5 +102,5 @@ class AlarmManager:
         print(f"Alarm Triggered: {alarm.hour}:{alarm.minute} - Primary: {alarm.is_primary_schedule}")
         
         # Call function to play the sound
-        self.pi_handler.play_alarm()
+        # self.pi_handler.play_alarm()
 
