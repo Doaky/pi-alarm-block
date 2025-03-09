@@ -13,6 +13,14 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.dm-container {
+  padding: 50px;
+  background-color: #495057;
+  border-radius: 10px;
+  width: 600px;
+  box-shadow: 0 0px 30px 2px #fff;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
@@ -28,15 +36,31 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+
+  justify-content: center;
 }
 
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+  margin-top: 0;
+
+  margin-bottom: 60px;
+  text-align: center;
+  color: #fff;
+}
+
+.button-icon {
+  height: 20px;
+  width: 20px;
+  margin-right: 10px;
+}
+.button-group {
+  display: flex;
+  justify-content: center;
 }
 
 button {
-  border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
@@ -45,6 +69,13 @@ button {
   background-color: #1a1a1a;
   cursor: pointer;
   transition: border-color 0.25s;
+
+  width: 170px;
+  border-radius: 100px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 button:hover {
   border-color: #646cff;
