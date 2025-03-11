@@ -1,3 +1,7 @@
+try:
+    import RPi.GPIO
+except RuntimeError:
+    exit
 import os
 # os.environ['SDL_AUDIODRIVER'] = 'dsp'
 import random

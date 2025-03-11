@@ -1,3 +1,11 @@
+def is_raspberry_pi():
+    try:
+        import RPi.GPIO
+        return True
+    except RuntimeError:
+        return False
+IS_RASPBERRY_PI = is_raspberry_pi()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,7 +14,8 @@ from typing import List
 from alarm import Alarm
 from alarm_manager import AlarmManager
 from settings_manager import SettingsManager
-# from pi_handler import PiHandler
+if IS_RASPBERRY_PI:
+    from pi_handler import PiHandler
 
 app = FastAPI()
 # Enable CORS for frontend communication
@@ -19,10 +28,14 @@ app.add_middleware(
 )
 
 settings_manager = SettingsManager()
-# pi_handler = PiHandler(settings_manager)
 
-# alarm_manager = AlarmManager(pi_handler, settings_manager)
-alarm_manager = AlarmManager(settings_manager)
+
+if IS_RASPBERRY_PI:
+    pi_handler = PiHandler(settings_manager)
+else:
+    pi_handler = None
+
+alarm_manager = AlarmManager(settings_manager, pi_handler)
 
 # Serve React frontend
 app.mount("/", StaticFiles(directory="frontend/dist/", html=True), name="frontend")

@@ -1,15 +1,24 @@
+def is_raspberry_pi():
+    try:
+        import RPi.GPIO
+        return True
+    except RuntimeError:
+        return False
+IS_RASPBERRY_PI = is_raspberry_pi()
+
 import json
 from typing import Dict, List
-from alarm import Alarm
-# from pi_handler import PiHandler
-from settings_manager import SettingsManager
-from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from alarm import Alarm
+if IS_RASPBERRY_PI:
+    from pi_handler import PiHandler
+from settings_manager import SettingsManager
 
 class AlarmManager:
-    def __init__(self, settings_manager: SettingsManager, file_path: str = "backend/data/alarms.json"):
-    # def __init__(self, pi_handler: PiHandler, settings_manager: SettingsManager, file_path: str = "backend/data/alarms.json"):
-        # self.pi_handler = pi_handler
+    def __init__(self, settings_manager: SettingsManager, pi_handler = None, file_path: str = "backend/data/alarms.json"):
+        self.pi_handler = pi_handler
         self.settings_manager = settings_manager
         self.file_path = file_path
 
@@ -102,5 +111,6 @@ class AlarmManager:
         print(f"Alarm Triggered: {alarm.hour}:{alarm.minute} - Primary: {alarm.is_primary_schedule}")
         
         # Call function to play the sound
-        # self.pi_handler.play_alarm()
+        if self.pi_handler:
+            self.pi_handler.play_alarm()
 
