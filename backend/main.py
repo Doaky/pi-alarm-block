@@ -37,12 +37,6 @@ else:
 
 alarm_manager = AlarmManager(settings_manager, pi_handler)
 
-# Serve React frontend
-try:
-    app.mount("/", StaticFiles(directory="frontend/dist/", html=True), name="frontend")
-except RuntimeError:
-    print("nope")
-
 ### ---- ALARM MANAGEMENT ---- ###
 @app.get("/alarms")
 def get_alarms():
@@ -117,6 +111,10 @@ def set_global_status(is_global_on: bool):
     """Enables or disables all alarms."""
     settings_manager.set_is_global_on(is_global_on)
     return {"message": f"Global status set to {is_global_on}"}
+
+# Serve React frontend
+app.mount("/", StaticFiles(directory="frontend/dist/", html=True), name="frontend")
+
 
 
 ### ---- SERVER STARTUP ---- ###
