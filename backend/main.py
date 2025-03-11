@@ -19,13 +19,13 @@ if IS_RASPBERRY_PI:
 
 app = FastAPI()
 # Enable CORS for frontend communication
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Change to specific frontend URL in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],  # Change to specific frontend URL in production
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 settings_manager = SettingsManager()
 
