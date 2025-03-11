@@ -9,12 +9,32 @@ import time
 import pygame
 import RPi.GPIO as GPIO
 from threading import Thread
-
+# GPIO Pins for Encoder and Buttons
+GPIO_A = 26  # GPIO pin for encoder A
+GPIO_B = 6   # GPIO pin for encoder B
+BUTTON_PIN = 13  # GPIO pin for mute button
+VOLUME_STEP = 5
 class PiHandler:
-    def __init__(self, settings_manager, sounds_dir="sounds/", white_noise_file="white_noise.mp3"):
+    # # GPIO Pins for Encoder and Buttons
+    # GPIO_A = 26  # GPIO pin for encoder A
+    # GPIO_B = 6   # GPIO pin for encoder B
+    # BUTTON_PIN = 13  # GPIO pin for mute button
+    
+    def __init__(self, settings_manager, sounds_dir="backend/sounds/", white_noise_file="white_noise.mp3"):
+
+        
+
         # Initialize pygame mixer for sound playback
         # pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
         pygame.mixer.init()
+
+        # Variables to track rotary encoder state and playback status
+        last_a_state = GPIO.input(GPIO_A)
+        last_b_state = GPIO.input(GPIO_B)
+        counter = 50  # Start at 50% volume
+        muted = False  # Initial mute state
+        paused = False  # Initial play state
+        last_volume = 50  # Store volume level for unmuting
 
         # Initialize the SettingsManager to change global and schedule settings
         self.settings_manager = settings_manager
@@ -29,9 +49,9 @@ class PiHandler:
         # GPIO Setup
         GPIO.cleanup()
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(26, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Rotary Encoder A
-        GPIO.setup(6, GPIO.IN, pull_up_down=GPIO.PUD_UP)   # Rotary Encoder B
-        GPIO.setup(13, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Encoder Button
+        GPIO.setup(GPIO_A, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Rotary Encoder A
+        GPIO.setup(GPIO_B, GPIO.IN, pull_up_down=GPIO.PUD_UP)   # Rotary Encoder B
+        GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Encoder Button
         GPIO.setup(24, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Schedule Switch
         GPIO.setup(25, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Global Switch
 
@@ -46,18 +66,42 @@ class PiHandler:
     
     def _on_rotary_rotated(self, channel):
         """Handle the rotary encoder rotation to adjust the volume."""
-        current_state = GPIO.input(26)
-        if current_state != self.last_encoder_state:  # Ensure state change
-            if GPIO.input(6) != current_state:
-                direction = "clockwise"
-                if self.white_noise_volume < 1.0:
-                    self.white_noise_volume += 0.05
-            else:
-                direction = "counterclockwise"
-                if self.white_noise_volume > 0.05:
-                    self.white_noise_volume -= 0.05
-            self.last_encoder_state = current_state
-            print(f"Encoder Rotated {direction}")
+        global last_a_state, last_b_state
+    
+        # Read current states
+        current_a_state = GPIO.input(GPIO_A)
+        current_b_state = GPIO.input(GPIO_B)
+        
+        # Check for state change on A pin (the interrupt pin)
+        if current_a_state != last_a_state:
+            # If A changed, check B to determine direction
+            if current_a_state == GPIO.HIGH:  # Rising edge on A
+                if current_b_state == GPIO.LOW:
+                    # Clockwise rotation - increase volume
+                    self.white_noise_volume += VOLUME_STEP
+                else:
+                    # Counter-clockwise rotation - decrease volume
+                    self.white_noise_volume -= VOLUME_STEP
+                
+                # Apply the new volume and get the clamped value back
+                # counter = set_volume(counter)
+                
+        
+        # Update last known states
+        last_a_state = current_a_state
+        last_b_state = current_b_state
+        # current_state = GPIO.input(26)
+        # if current_state != self.last_encoder_state:  # Ensure state change
+        #     if GPIO.input(6) != current_state:
+        #         direction = "clockwise"
+        #         if self.white_noise_volume < 1.0:
+        #             self.white_noise_volume += 0.05
+        #     else:
+        #         direction = "counterclockwise"
+        #         if self.white_noise_volume > 0.05:
+        #             self.white_noise_volume -= 0.05
+        #     self.last_encoder_state = current_state
+        #     print(f"Encoder Rotated {direction}")
         
         if self.white_noise_playing:
             pygame.mixer.music.set_volume(self.white_noise_volume)
@@ -103,7 +147,10 @@ class PiHandler:
         alarm_sound = pygame.mixer.Sound(alarm_path)
         alarm_sound.set_volume(self.alarm_volume)
         alarm_sound.play()
-        # pygame.mixer.music.play()
+        pygame.mixer.music.play()
+
+    def stop_alarm(self):
+        pygame.mixer.music.pause()
     
     def increase_alarm_volume(self):
         """Gradually increase the alarm volume to 50%."""

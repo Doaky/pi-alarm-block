@@ -6,7 +6,7 @@ def is_raspberry_pi():
         return False
 IS_RASPBERRY_PI = is_raspberry_pi()
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
@@ -75,14 +75,16 @@ def remove_alarms(alarm_ids: List[str]):
 def stop():
     """Stops the currently playing alarm."""
     print("POST /stop-alarm")
-    # stop_alarm()
+    if IS_RASPBERRY_PI:
+        pi_handler.stop_alarm()
     return {"message": "Alarm stopped"}
 
 @app.post("/play-alarm")
 def play():
     """Plays an alarm."""
     print("POST /play-alarm")
-    # play_alarm()
+    if IS_RASPBERRY_PI:
+        pi_handler.play_alarm()
     return {"message": "Alarm playing"}
 
 
@@ -93,7 +95,7 @@ def get_schedule():
     return {"is_primary_schedule": settings_manager.get_is_primary_schedule()}
 
 @app.post("/set_schedule")
-def set_schedule(is_primary: bool):
+def set_schedule(is_primary: bool = Body(...)):
     """Updates primary schedule status."""
     try:
         settings_manager.set_is_primary_schedule(is_primary)
@@ -107,7 +109,7 @@ def get_global_status():
     return {"is_global_on": settings_manager.get_is_global_on()}
 
 @app.post("/set_global_status")
-def set_global_status(is_global_on: bool):
+def set_global_status(is_global_on: bool = Body(...)):
     """Enables or disables all alarms."""
     settings_manager.set_is_global_on(is_global_on)
     return {"message": f"Global status set to {is_global_on}"}
