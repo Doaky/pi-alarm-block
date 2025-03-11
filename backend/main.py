@@ -38,7 +38,10 @@ else:
 alarm_manager = AlarmManager(settings_manager, pi_handler)
 
 # Serve React frontend
-app.mount("/", StaticFiles(directory="frontend/dist/", html=True), name="frontend")
+try:
+    app.mount("/", StaticFiles(directory="frontend/dist/", html=True), name="frontend")
+except RuntimeError:
+    print("nope")
 
 ### ---- ALARM MANAGEMENT ---- ###
 @app.get("/alarms")
