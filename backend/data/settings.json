@@ -1,4 +1,4 @@
 {
-    "is_primary_schedule": true,
-    "is_global_on": true
+    "is_primary_schedule": false,
+    "is_global_on": false
 }

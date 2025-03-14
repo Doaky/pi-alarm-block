@@ -11,7 +11,9 @@ interface Alarm {
 }
 
 const App = () => {
+    console.log("INIT");
     const [alarms, setAlarms] = useState<Alarm[]>([]);
+    const [isPrimarySchedule, setIsPrimarySchedule] = useState<boolean>(true);
 
     // State for form inputs
     const [hour, setHour] = useState(7);
@@ -19,8 +21,6 @@ const App = () => {
     const [days, setDays] = useState<number[]>([]);
     const [isPrimary, setIsPrimary] = useState(true);
     const [active, setActive] = useState(true);
-
-    const [isPrimarySchedule, setIsPrimarySchedule] = useState(true);
 
     // States for toggling schedule and global status
     const [globalStatus, setGlobalStatus] = useState(true);
@@ -78,6 +78,8 @@ const App = () => {
             active,
         };
 
+        console.log("new alarm: ", newAlarm);
+
         fetch("/set-alarm", {
             method: "PUT",
             body: JSON.stringify(newAlarm),
@@ -104,14 +106,29 @@ const App = () => {
     };
 
     // Function to toggle schedule (primary/secondary)
-    const handleScheduleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newSchedule = e.target.value === "primary";
-        setIsPrimarySchedule(newSchedule);
+    // const handleScheduleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    //     const newSchedule = e.target.value === "primary";
+    //     setIsPrimarySchedule(newSchedule);
 
+    //     fetch("/set_schedule", {
+    //         method: "POST",
+    //         headers: { "Content-Type": "application/json" },
+    //         body: JSON.stringify({ is_primary: newSchedule }),
+    //     })
+    //     .then(res => res.json())
+    //     .then(() => {
+    //         setIsPrimarySchedule(isPrimary);
+    //     });
+    // };
+    const handleScheduleChange = (isPrimary: boolean) => {
         fetch("/set_schedule", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ is_primary: newSchedule }),
+            body: JSON.stringify({ is_primary: isPrimary }),
+            headers: { "Content-Type": "application/json" }
+        })
+        .then(res => res.json())
+        .then(() => {
+            setIsPrimarySchedule(isPrimary);
         });
     };
 
@@ -162,28 +179,28 @@ const App = () => {
     return (
         <div>
             <h1>Settings</h1>
-            <div>
-                <label>Primary Schedule:</label>
-                <label>
-                    <input
-                    type="radio"
-                    name="global_schedule"
-                    value="primary"
-                    checked={isPrimarySchedule}
-                    onChange={handleScheduleChange}
-                    />
-                    Primary
-                </label>
-                <label>
-                    <input
-                    type="radio"
-                    name="global_schedule"
-                    value="secondary"
-                    checked={!isPrimarySchedule}
-                    onChange={handleScheduleChange}
-                    />
-                    Secondary
-                </label>
+            <div className="mb-4">
+                <h2 className="text-xl mb-2">Schedule Type</h2>
+                <div className="flex gap-4">
+                    <label className="flex items-center">
+                        <input
+                            type="radio"
+                            checked={isPrimarySchedule}
+                            onChange={() => handleScheduleChange(true)}
+                            className="mr-2"
+                        />
+                        Primary Schedule
+                    </label>
+                    <label className="flex items-center">
+                        <input
+                            type="radio"
+                            checked={!isPrimarySchedule}
+                            onChange={() => handleScheduleChange(false)}
+                            className="mr-2"
+                        />
+                        Secondary Schedule
+                    </label>
+                </div>
             </div>
 
             <div>

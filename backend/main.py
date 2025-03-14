@@ -48,12 +48,12 @@ def set_alarm(alarm_data: dict):
     """Creates or updates an alarm using an Alarm object."""
     try:
         alarm_obj = Alarm(
-            id=alarm_data.id,
-            hour=alarm_data.hour,
-            minute=alarm_data.minute,
-            days=alarm_data.days,
-            is_primary_schedule=alarm_data.is_primary_schedule,
-            active=alarm_data.active,
+            id=alarm_data.get("id"),
+            hour=alarm_data.get("hour"),
+            minute=alarm_data.get("minute"),
+            days=alarm_data.get("days"),
+            is_primary_schedule=alarm_data.get("is_primary_schedule"),
+            active=alarm_data.get("active"),
         )
         
         alarm_manager.set_alarm(alarm_obj)
@@ -74,7 +74,6 @@ def remove_alarms(alarm_ids: List[str]):
 @app.post("/stop-alarm")
 def stop():
     """Stops the currently playing alarm."""
-    print("POST /stop-alarm")
     if IS_RASPBERRY_PI:
         pi_handler.stop_alarm()
     return {"message": "Alarm stopped"}
@@ -82,7 +81,6 @@ def stop():
 @app.post("/play-alarm")
 def play():
     """Plays an alarm."""
-    print("POST /play-alarm")
     if IS_RASPBERRY_PI:
         pi_handler.play_alarm()
     return {"message": "Alarm playing"}
@@ -95,7 +93,7 @@ def get_schedule():
     return {"is_primary_schedule": settings_manager.get_is_primary_schedule()}
 
 @app.post("/set_schedule")
-def set_schedule(is_primary: bool = Body(...)):
+def set_schedule(is_primary: bool = Body(..., embed=True)):
     """Updates primary schedule status."""
     try:
         settings_manager.set_is_primary_schedule(is_primary)
@@ -109,7 +107,7 @@ def get_global_status():
     return {"is_global_on": settings_manager.get_is_global_on()}
 
 @app.post("/set_global_status")
-def set_global_status(is_global_on: bool = Body(...)):
+def set_global_status(is_global_on: bool = Body(...,  embed=True)):
     """Enables or disables all alarms."""
     settings_manager.set_is_global_on(is_global_on)
     return {"message": f"Global status set to {is_global_on}"}
