@@ -1,37 +1,39 @@
 [
     {
-        "id": "ec67a7aa-a8a7-48fa-a575-d4af4319d6f3",
+        "id": "15d23e4a-6917-43ce-a8e4-a16d073f46a1",
         "hour": 7,
-        "minute": 0,
+        "minute": 45,
         "days": [
             1,
+            2,
             3,
-            5
+            4
         ],
         "is_primary_schedule": true,
         "active": true
     },
     {
-        "id": "752c300c-c461-4c01-a2e1-be1feb3614ce",
-        "hour": 7,
-        "minute": 30,
+        "id": "c8c94533-1e87-4189-8832-f8ef4cec827f",
+        "hour": 8,
+        "minute": 20,
         "days": [
-            3
+            1,
+            2,
+            3,
+            4,
+            5
         ],
         "is_primary_schedule": false,
         "active": true
     },
     {
-        "id": "b293639c-eac4-488f-a92c-ddb957db0de6",
-        "hour": 7,
+        "id": "0d640fb0-13ef-4451-96b1-a0695b90a287",
+        "hour": 8,
         "minute": 30,
         "days": [
-            1,
-            3,
-            5,
-            6
+            5
         ],
-        "is_primary_schedule": false,
+        "is_primary_schedule": true,
         "active": true
     }
 ]

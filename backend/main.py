@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from typing import List, Optional
 import uvicorn
 
-from alarm import Alarm
+from alarm import Alarm, AlarmBase, AlarmResponse
 from alarm_manager import AlarmManager
 from settings_manager import SettingsManager
 
@@ -50,7 +50,7 @@ else:
 alarm_manager = AlarmManager(settings_manager, pi_handler)
 
 ### ---- ALARM MANAGEMENT ---- ###
-@app.get("/alarms", response_model=List[Alarm])
+@app.get("/alarms", response_model=List[AlarmResponse])
 async def get_alarms():
     """Returns all stored alarms."""
     try:
@@ -77,7 +77,7 @@ async def set_alarm(alarm_data: dict):
         
         alarm_manager.set_alarm(alarm_obj)
         logger.info(f"Alarm set successfully: {alarm_obj.id}")
-        return {"message": "Alarm set successfully", "alarm": alarm_obj.dict()}
+        return {"message": "Alarm set successfully", "alarm": alarm_obj.to_dict()}
     except KeyError as e:
         logger.error(f"Missing field in alarm data: {e.args[0]}")
         raise HTTPException(
@@ -150,12 +150,45 @@ async def play():
             detail="Failed to play alarm"
         )
 
-### ---- SCHEDULE & GLOBAL STATUS MANAGEMENT ---- ###
+### ---- WHITE NOISE CONTROL ---- ###
+@app.post("/white-noise/play")
+async def play_white_noise():
+    """Starts playing white noise."""
+    try:
+        if IS_RASPBERRY_PI:
+            pi_handler.play_white_noise()
+            logger.info("White noise started")
+            return {"message": "White noise playing"}
+        return {"message": "No hardware available"}
+    except Exception as e:
+        logger.error(f"Error playing white noise: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to play white noise"
+        )
+
+@app.post("/white-noise/stop")
+async def stop_white_noise():
+    """Stops playing white noise."""
+    try:
+        if IS_RASPBERRY_PI:
+            pi_handler.stop_white_noise()
+            logger.info("White noise stopped")
+            return {"message": "White noise stopped"}
+        return {"message": "No hardware available"}
+    except Exception as e:
+        logger.error(f"Error stopping white noise: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to stop white noise"
+        )
+
+### ---- SCHEDULE MANAGEMENT ---- ###
 @app.get("/get_schedule")
 async def get_schedule():
-    """Returns is primary schedule."""
+    """Returns current schedule setting."""
     try:
-        return {"is_primary_schedule": settings_manager.get_is_primary_schedule()}
+        return {"schedule": settings_manager.get_schedule()}
     except Exception as e:
         logger.error(f"Error getting schedule: {str(e)}")
         raise HTTPException(
@@ -164,12 +197,15 @@ async def get_schedule():
         )
 
 @app.post("/set_schedule")
-async def set_schedule(is_primary: bool = Body(..., embed=True)):
-    """Updates primary schedule status."""
+async def set_schedule(schedule: str = Body(..., embed=True)):
+    """Updates schedule setting.
+    
+    Args:
+        schedule: Schedule type ('a', 'b', or 'off')
+    """
     try:
-        settings_manager.set_is_primary_schedule(is_primary)
-        logger.info(f"Schedule set to primary: {is_primary}")
-        return {"message": f"Schedule set to primary: {is_primary}"}
+        settings_manager.set_schedule(schedule)
+        return {"message": "Schedule updated successfully"}
     except ValueError as e:
         logger.error(f"Invalid schedule value: {str(e)}")
         raise HTTPException(
@@ -180,33 +216,7 @@ async def set_schedule(is_primary: bool = Body(..., embed=True)):
         logger.error(f"Error setting schedule: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to set schedule"
-        )
-
-@app.get("/get_global_status")
-async def get_global_status():
-    """Returns is global."""
-    try:
-        return {"is_global_on": settings_manager.get_is_global_on()}
-    except Exception as e:
-        logger.error(f"Error getting global status: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get global status"
-        )
-
-@app.post("/set_global_status")
-async def set_global_status(is_global_on: bool = Body(..., embed=True)):
-    """Enables or disables all alarms."""
-    try:
-        settings_manager.set_is_global_on(is_global_on)
-        logger.info(f"Global status set to {is_global_on}")
-        return {"message": f"Global status set to {is_global_on}"}
-    except Exception as e:
-        logger.error(f"Error setting global status: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to set global status"
+            detail="Failed to update schedule"
         )
 
 # Serve React frontend

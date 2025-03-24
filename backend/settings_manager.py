@@ -1,28 +1,30 @@
 import json
 import logging
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, Literal
+from enum import Enum
 from pydantic import BaseModel, Field
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
+class ScheduleType(str, Enum):
+    """Enum for schedule types"""
+    A = "a"
+    B = "b"
+    OFF = "off"
+
 class Settings(BaseModel):
     """Pydantic model for alarm clock settings validation."""
-    is_primary_schedule: bool = Field(
-        True,
-        description="Whether to use primary schedule (True) or secondary schedule (False)"
-    )
-    is_global_on: bool = Field(
-        True,
-        description="Whether alarms are globally enabled"
+    schedule: ScheduleType = Field(
+        ScheduleType.A,
+        description="Current schedule setting: 'a' (primary), 'b' (secondary), or 'off' (disabled)"
     )
 
     class Config:
         json_schema_extra = {
             "example": {
-                "is_primary_schedule": True,
-                "is_global_on": True
+                "schedule": "a"
             }
         }
 
@@ -131,59 +133,50 @@ class SettingsManager:
             logger.error(f"Failed to update settings: {str(e)}")
             raise ValueError(f"Invalid settings: {str(e)}")
 
-    def get_is_primary_schedule(self) -> bool:
+    def get_schedule(self) -> str:
         """
-        Get current schedule type.
+        Get current schedule setting.
         
         Returns:
-            bool: True if primary schedule is active, False for secondary
+            str: Current schedule ('a', 'b', or 'off')
         """
-        return self._settings.is_primary_schedule
+        return self._settings.schedule.value
 
-    def set_is_primary_schedule(self, is_primary: bool) -> None:
+    def set_schedule(self, schedule: str) -> None:
         """
         Set schedule type.
         
         Args:
-            is_primary: True for primary schedule, False for secondary
+            schedule: Schedule type ('a', 'b', or 'off')
             
         Raises:
             ValueError: If the value is invalid
         """
         try:
-            self._settings.is_primary_schedule = is_primary
+            self._settings.schedule = ScheduleType(schedule)
             self._save_settings()
-            logger.info(f"Schedule type set to: {'primary' if is_primary else 'secondary'}")
+            logger.info(f"Schedule set to: {schedule}")
         except Exception as e:
-            logger.error(f"Failed to set schedule type: {str(e)}")
+            logger.error(f"Failed to set schedule: {str(e)}")
             raise ValueError(f"Invalid schedule type: {str(e)}")
+
+    def get_is_primary_schedule(self) -> bool:
+        """
+        Get current schedule type (legacy compatibility).
+        
+        Returns:
+            bool: True if primary schedule is active (schedule='a'), False otherwise
+        """
+        return self._settings.schedule == ScheduleType.A
 
     def get_is_global_on(self) -> bool:
         """
-        Get global alarm status.
+        Get global alarm status (legacy compatibility).
         
         Returns:
-            bool: True if alarms are globally enabled
+            bool: True if alarms are globally enabled (schedule != 'off')
         """
-        return self._settings.is_global_on
-
-    def set_is_global_on(self, is_on: bool) -> None:
-        """
-        Set global alarm status.
-        
-        Args:
-            is_on: True to enable alarms globally, False to disable
-            
-        Raises:
-            ValueError: If the value is invalid
-        """
-        try:
-            self._settings.is_global_on = is_on
-            self._save_settings()
-            logger.info(f"Global alarm status set to: {'enabled' if is_on else 'disabled'}")
-        except Exception as e:
-            logger.error(f"Failed to set global status: {str(e)}")
-            raise ValueError(f"Invalid global status: {str(e)}")
+        return self._settings.schedule != ScheduleType.OFF
 
     def reset_to_defaults(self) -> None:
         """Reset all settings to their default values."""

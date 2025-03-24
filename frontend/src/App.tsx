@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { Divider } from '@mui/material';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import dayjs from 'dayjs';
+import './styles.css';
 
 // Define the expected structure of an alarm
 interface Alarm {
@@ -12,24 +19,42 @@ interface Alarm {
     active: boolean;
 }
 
+type ScheduleType = "a" | "b" | "off";
+
 // Day name mapping for better display
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
+// Format time in 12-hour format with AM/PM
+function formatTime(hour: number, minute: number): string {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+}
+
+// Parse dayjs object to { hour: number, minute: number }
+function parseTime(time: dayjs.Dayjs | null): { hour: number, minute: number } {
+    if (!time) return { hour: 0, minute: 0 };
+    return { hour: time.hour(), minute: time.minute() };
+}
+
+const darkTheme = createTheme({
+    palette: {
+      mode: 'dark',
+    },
+});
+  
 const App = () => {
     // Alarm states
     const [alarms, setAlarms] = useState<Alarm[]>([]);
     const [selectedAlarms, setSelectedAlarms] = useState<Set<string>>(new Set());
 
     // Form states
-    const [hour, setHour] = useState(7);
-    const [minute, setMinute] = useState(30);
+    const [selectedTime, setSelectedTime] = useState<dayjs.Dayjs | null>(dayjs());
     const [days, setDays] = useState<number[]>([]);
     const [isPrimary, setIsPrimary] = useState(true);
-    const [active, setActive] = useState(true);
 
     // Global states
-    const [isPrimarySchedule, setIsPrimarySchedule] = useState(true);
-    const [globalStatus, setGlobalStatus] = useState(true);
+    const [currentSchedule, setCurrentSchedule] = useState<ScheduleType>("a");
     const [isLoading, setIsLoading] = useState(true);
 
     // Audio states
@@ -38,7 +63,6 @@ const App = () => {
 
     useEffect(() => {
         Promise.all([
-            // Fetch alarms
             fetch("/alarms")
                 .then(res => res.json())
                 .catch(err => {
@@ -46,26 +70,16 @@ const App = () => {
                     console.error("Error fetching alarms:", err);
                     return [];
                 }),
-            // Fetch schedule state
             fetch("/get_schedule")
                 .then(res => res.json())
                 .catch(err => {
                     toast.error("Failed to fetch schedule");
                     console.error("Error fetching schedule:", err);
-                    return { is_primary_schedule: true };
-                }),
-            // Fetch global status
-            fetch("/get_global_status")
-                .then(res => res.json())
-                .catch(err => {
-                    toast.error("Failed to fetch global status");
-                    console.error("Error fetching global status:", err);
-                    return { is_global_on: true };
+                    return { schedule: "a" };
                 })
-        ]).then(([alarmsData, scheduleData, statusData]) => {
+        ]).then(([alarmsData, scheduleData]) => {
             setAlarms(alarmsData);
-            setIsPrimarySchedule(scheduleData.is_primary_schedule);
-            setGlobalStatus(statusData.is_global_on);
+            setCurrentSchedule(scheduleData.schedule);
             setIsLoading(false);
         });
     }, []);
@@ -81,10 +95,17 @@ const App = () => {
     const handleSetAlarm = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!selectedTime) {
+            toast.warning("Please select a time");
+            return;
+        }
+
         if (days.length === 0) {
             toast.warning("Please select at least one day");
             return;
         }
+
+        const { hour, minute } = parseTime(selectedTime);
 
         const newAlarm = {
             id: crypto.randomUUID(),
@@ -92,7 +113,7 @@ const App = () => {
             minute,
             days: [...days].sort(),
             is_primary_schedule: isPrimary,
-            active,
+            active: true,
         };
 
         try {
@@ -110,44 +131,26 @@ const App = () => {
             
             // Reset form
             setDays([]);
-            setHour(7);
-            setMinute(30);
+            setSelectedTime(dayjs());
         } catch (err) {
             toast.error("Failed to set alarm");
             console.error("Error setting alarm:", err);
         }
     };
 
-    const handleGlobalStatusChange = async (newStatus: boolean) => {
-        try {
-            const response = await fetch("/set_global_status", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ is_global_on: newStatus }),
-            });
-            
-            if (!response.ok) throw new Error("Failed to update global status");
-            
-            setGlobalStatus(newStatus);
-            toast.success(`Alarms ${newStatus ? "enabled" : "disabled"} globally`);
-        } catch (err) {
-            toast.error("Failed to update global status");
-            console.error("Error updating global status:", err);
-        }
-    };
-
-    const handleScheduleChange = async (isPrimary: boolean) => {
+    const handleScheduleChange = async (schedule: ScheduleType) => {
         try {
             const response = await fetch("/set_schedule", {
                 method: "POST",
-                body: JSON.stringify({ is_primary: isPrimary }),
+                body: JSON.stringify({ schedule }),
                 headers: { "Content-Type": "application/json" }
             });
             
             if (!response.ok) throw new Error("Failed to update schedule");
             
-            setIsPrimarySchedule(isPrimary);
-            toast.success(`Switched to ${isPrimary ? "primary" : "secondary"} schedule`);
+            setCurrentSchedule(schedule);
+            const scheduleDisplay = schedule === "a" ? "Primary" : schedule === "b" ? "Secondary" : "Off";
+            toast.success(`Switched to ${scheduleDisplay}`);
         } catch (err) {
             toast.error("Failed to update schedule");
             console.error("Error updating schedule:", err);
@@ -174,7 +177,7 @@ const App = () => {
             const response = await fetch("/alarms", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ alarm_ids: alarmIds }),
+                body: JSON.stringify(alarmIds),
             });
             
             if (!response.ok) throw new Error("Failed to delete alarms");
@@ -188,270 +191,301 @@ const App = () => {
         }
     };
 
-    const toggleAlarm = async () => {
+    const toggleAlarmActive = async (alarm: Alarm) => {
+        const updatedAlarm = { ...alarm, active: !alarm.active };
         try {
-            const response = await fetch(isPlaying ? "/stop-alarm" : "/play-alarm", {
-                method: "POST",
+            const response = await fetch("/set-alarm", {
+                method: "PUT",
+                body: JSON.stringify(updatedAlarm),
                 headers: { "Content-Type": "application/json" }
             });
             
-            if (!response.ok) throw new Error(`Failed to ${isPlaying ? "stop" : "play"} alarm`);
+            if (!response.ok) throw new Error("Failed to update alarm");
             
-            setIsPlaying(!isPlaying);
-            toast.success(`Alarm ${isPlaying ? "stopped" : "started"}`);
+            setAlarms(prev => prev.map(a => a.id === alarm.id ? updatedAlarm : a));
+            toast.success(`Alarm ${updatedAlarm.active ? "activated" : "deactivated"}`);
         } catch (err) {
-            toast.error(`Failed to ${isPlaying ? "stop" : "play"} alarm`);
-            console.error("Error controlling alarm:", err);
+            toast.error("Failed to update alarm");
+            console.error("Error updating alarm:", err);
         }
     };
 
-    const toggleWhiteNoise = async () => {
+    const handlePlayAlarm = async () => {
         try {
-            const response = await fetch(isWhiteNoiseActive ? "/stop-white-noise" : "/play-white-noise", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" }
-            });
-            
-            if (!response.ok) throw new Error(`Failed to ${isWhiteNoiseActive ? "stop" : "play"} white noise`);
-            
-            setIsWhiteNoiseActive(!isWhiteNoiseActive);
-            toast.success(`White noise ${isWhiteNoiseActive ? "stopped" : "started"}`);
+            const response = await fetch("/play-alarm", { method: "POST" });
+            if (!response.ok) throw new Error("Failed to play alarm");
+            setIsPlaying(true);
         } catch (err) {
-            toast.error(`Failed to ${isWhiteNoiseActive ? "stop" : "play"} white noise`);
-            console.error("Error controlling white noise:", err);
+            toast.error("Failed to play alarm");
+            console.error("Error playing alarm:", err);
         }
     };
 
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-        );
-    }
+    const handleStopAlarm = async () => {
+        try {
+            const response = await fetch("/stop-alarm", { method: "POST" });
+            if (!response.ok) throw new Error("Failed to stop alarm");
+            setIsPlaying(false);
+        } catch (err) {
+            toast.error("Failed to stop alarm");
+            console.error("Error stopping alarm:", err);
+        }
+    };
+
+    const handlePlayWhiteNoise = async () => {
+        try {
+            const response = await fetch("/white-noise/play", { method: "POST" });
+            if (!response.ok) throw new Error("Failed to play white noise");
+            setIsWhiteNoiseActive(true);
+        } catch (err) {
+            toast.error("Failed to play white noise");
+            console.error("Error playing white noise:", err);
+        }
+    };
+
+    const handleStopWhiteNoise = async () => {
+        try {
+            const response = await fetch("/white-noise/stop", { method: "POST" });
+            if (!response.ok) throw new Error("Failed to stop white noise");
+            setIsWhiteNoiseActive(false);
+        } catch (err) {
+            toast.error("Failed to stop white noise");
+            console.error("Error stopping white noise:", err);
+        }
+    };
+
+    // Sort alarms by time and schedule
+    const sortedAlarms = [...alarms].sort((a, b) => {
+        if (a.is_primary_schedule !== b.is_primary_schedule) {
+            return a.is_primary_schedule ? -1 : 1;
+        }
+        return a.hour * 60 + a.minute - (b.hour * 60 + b.minute);
+    });
 
     return (
-        <div className="min-h-screen bg-gray-100 py-8 px-4">
-            <div className="max-w-4xl mx-auto space-y-8">
-                {/* Settings Section */}
-                <section className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-2xl font-bold mb-6 text-gray-800">Settings</h2>
-                    
-                    {/* Schedule Type */}
-                    <div className="mb-6">
-                        <h3 className="text-lg font-semibold mb-3 text-gray-700">Schedule Type</h3>
-                        <div className="flex gap-6">
-                            {["Primary", "Secondary"].map((schedule, idx) => (
-                                <label key={schedule} className="flex items-center space-x-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        checked={idx === 0 ? isPrimarySchedule : !isPrimarySchedule}
-                                        onChange={() => handleScheduleChange(idx === 0)}
-                                        className="form-radio h-4 w-4 text-blue-500"
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <div className="min-h-screen p-4 bg-gray-900 text-white body-font">
+                <div className="max-w-4xl mx-auto">
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-bold title-font">Alarm Block</h1>
+                    </div>
+
+                    {/* Schedule Controls */}
+                    <div className="mb-8 p-4 bg-gray-800 rounded-lg shadow">
+                        <h2 className="text-xl font-semibold mb-4 title-font">Schedule Control</h2>
+                        <div className="grid grid-cols-3 gap-4">
+                            <button
+                                onClick={() => handleScheduleChange('a')}
+                                className={`schedule-button primary ${currentSchedule === 'a' ? 'selected' : ''}`}
+                            >
+                                Primary
+                            </button>
+                            <button
+                                onClick={() => handleScheduleChange('b')}
+                                className={`schedule-button secondary ${currentSchedule === 'b' ? 'selected' : ''}`}
+                            >
+                                Secondary
+                            </button>
+                            <button
+                                onClick={() => handleScheduleChange('off')}
+                                className={`schedule-button off ${currentSchedule === 'off' ? 'selected' : ''}`}
+                            >
+                                Off
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Set Alarm Form */}
+                    <form onSubmit={handleSetAlarm} className="mb-8 p-4 bg-gray-800 rounded-lg shadow">
+                        <h2 className="text-xl font-semibold mb-4 title-font">Set New Alarm</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block mb-2">Time:</label>
+                                <ThemeProvider theme={darkTheme}>
+                                    <TimePicker
+                                        value={selectedTime}
+                                        onChange={(newValue) => setSelectedTime(newValue)}
+                                        slotProps={{
+                                            textField: {
+                                                className: "bg-gray-700 rounded text-white h-14",
+                                                sx: {
+                                                    '& .MuiInputBase-input': {
+                                                        color: 'white',
+                                                    },
+                                                    '& .MuiOutlinedInput-notchedOutline': {
+                                                        borderColor: 'rgba(255, 255, 255, 0.23)',
+                                                    },
+                                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                                        borderColor: 'rgba(255, 255, 255, 0.23)',
+                                                    },
+                                                    '& .MuiIconButton-root': {
+                                                        color: 'white',
+                                                    },
+                                                    '& .MuiPaper-root': {
+                                                        backgroundColor: 'rgb(31, 41, 55)',
+                                                        color: 'white',
+                                                    },
+                                                    '& .MuiClock-root': {
+                                                        backgroundColor: 'rgb(31, 41, 55)',
+                                                        color: 'white',
+                                                    },
+                                                    '& .MuiClockNumber-root': {
+                                                        color: 'white',
+                                                    },
+                                                    '& .MuiClockPointer-root': {
+                                                        backgroundColor: 'rgb(59, 130, 246)',
+                                                    },
+                                                    '& .MuiClockPointer-thumb': {
+                                                        backgroundColor: 'rgb(59, 130, 246)',
+                                                        borderColor: 'rgb(59, 130, 246)',
+                                                    },
+                                                    '& .MuiClock-pin': {
+                                                        backgroundColor: 'rgb(59, 130, 246)',
+                                                    }
+                                                }
+                                            }
+                                        }}
                                     />
-                                    <span className="text-gray-700">{schedule} Schedule</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Global Status */}
-                    <div className="mb-6">
-                        <label className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={globalStatus}
-                                onChange={(e) => handleGlobalStatusChange(e.target.checked)}
-                                className="form-checkbox h-4 w-4 text-blue-500 rounded"
-                            />
-                            <span className="text-gray-700">
-                                Global Status: <span className={globalStatus ? "text-green-500" : "text-red-500"}>
-                                    {globalStatus ? "Enabled" : "Disabled"}
-                                </span>
-                            </span>
-                        </label>
-                    </div>
-
-                    {/* Sound Controls */}
-                    <div className="flex gap-4">
-                        <button
-                            onClick={toggleAlarm}
-                            className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                                isPlaying
-                                    ? "bg-red-500 hover:bg-red-600 text-white"
-                                    : "bg-blue-500 hover:bg-blue-600 text-white"
-                            }`}
-                        >
-                            {isPlaying ? "Stop Alarm" : "Test Alarm"}
-                        </button>
-                        <button
-                            onClick={toggleWhiteNoise}
-                            className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                                isWhiteNoiseActive
-                                    ? "bg-red-500 hover:bg-red-600 text-white"
-                                    : "bg-blue-500 hover:bg-blue-600 text-white"
-                            }`}
-                        >
-                            {isWhiteNoiseActive ? "Stop White Noise" : "Play White Noise"}
-                        </button>
-                    </div>
-                </section>
-
-                {/* Alarm Form Section */}
-                <section className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-2xl font-bold mb-6 text-gray-800">Add New Alarm</h2>
-                    <form onSubmit={handleSetAlarm} className="space-y-6">
-                        {/* Time Input */}
-                        <div className="flex items-center space-x-2">
-                            <label className="text-gray-700 font-medium">Time:</label>
-                            <input 
-                                type="number" 
-                                value={hour} 
-                                onChange={(e) => setHour(Math.min(23, Math.max(0, parseInt(e.target.value) || 0)))} 
-                                className="w-16 px-2 py-1 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                min="0"
-                                max="23"
-                            />
-                            <span className="text-gray-700">:</span>
-                            <input 
-                                type="number" 
-                                value={minute} 
-                                onChange={(e) => setMinute(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))} 
-                                className="w-16 px-2 py-1 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                min="0"
-                                max="59"
-                            />
-                        </div>
-
-                        {/* Days Selection */}
-                        <div>
-                            <label className="text-gray-700 font-medium block mb-2">Days:</label>
-                            <div className="flex flex-wrap gap-3">
-                                {DAYS.map((day, index) => (
-                                    <label key={day} className="flex items-center space-x-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={days.includes(index)}
-                                            onChange={() => toggleDay(index)}
-                                            className="form-checkbox h-4 w-4 text-blue-500 rounded"
-                                        />
-                                        <span className="text-gray-700">{day}</span>
-                                    </label>
-                                ))}
+                                </ThemeProvider>
+                            </div>
+                            <div>
+                                <label className="block mb-2">Days:</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {DAYS.map((day, index) => (
+                                        <button
+                                            key={day}
+                                            type="button"
+                                            onClick={() => toggleDay(index)}
+                                            className={`day-button ${
+                                                days.includes(index)
+                                                    ? 'bg-blue-500 text-white'
+                                                    : 'bg-gray-700'
+                                            }`}
+                                        >
+                                            {day}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-
-                        {/* Schedule Selection */}
-                        <div>
-                            <label className="text-gray-700 font-medium block mb-2">Schedule:</label>
-                            <div className="flex gap-6">
-                                {["Primary", "Secondary"].map((schedule, idx) => (
-                                    <label key={schedule} className="flex items-center space-x-2 cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name="schedule"
-                                            checked={idx === 0 ? isPrimary : !isPrimary}
-                                            onChange={() => setIsPrimary(idx === 0)}
-                                            className="form-radio h-4 w-4 text-blue-500"
-                                        />
-                                        <span className="text-gray-700">{schedule}</span>
-                                    </label>
-                                ))}
-                            </div>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <button
+                                type="button"
+                                onClick={() => setIsPrimary(true)}
+                                className={`schedule-button primary ${isPrimary ? 'selected' : ''}`}
+                            >
+                                Primary Schedule
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsPrimary(false)}
+                                className={`schedule-button secondary ${!isPrimary ? 'selected' : ''}`}
+                            >
+                                Secondary Schedule
+                            </button>
                         </div>
-
-                        {/* Active Status */}
-                        <div>
-                            <label className="flex items-center space-x-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={active}
-                                    onChange={() => setActive(prev => !prev)}
-                                    className="form-checkbox h-4 w-4 text-blue-500 rounded"
-                                />
-                                <span className="text-gray-700">Active</span>
-                            </label>
-                        </div>
-
                         <button
                             type="submit"
-                            className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors font-medium"
+                            className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                         >
                             Set Alarm
                         </button>
                     </form>
-                </section>
 
-                {/* Alarm List Section */}
-                <section className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-2xl font-bold mb-6 text-gray-800">Alarm List</h2>
-                    {alarms.length === 0 ? (
-                        <p className="text-gray-500 text-center py-4">No alarms set</p>
-                    ) : (
-                        <div className="space-y-4">
-                            <ul className="space-y-2">
-                                {alarms.map((alarm) => (
-                                    <li
-                                        key={alarm.id}
-                                        className={`flex items-center p-3 rounded-md ${
-                                            selectedAlarms.has(alarm.id) ? "bg-blue-50" : "hover:bg-gray-50"
-                                        }`}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedAlarms.has(alarm.id)}
-                                            onChange={() => toggleAlarmSelection(alarm.id)}
-                                            className="form-checkbox h-4 w-4 text-blue-500 rounded mr-4"
-                                        />
-                                        <div className="flex-1">
-                                            <span className="font-medium">
-                                                {alarm.hour.toString().padStart(2, "0")}:
-                                                {alarm.minute.toString().padStart(2, "0")}
-                                            </span>
-                                            <span className="mx-2">-</span>
-                                            <span className="text-gray-600">
-                                                {alarm.days.map(d => DAYS[d]).join(", ")}
-                                            </span>
-                                            <span className={`ml-4 ${alarm.active ? "text-green-500" : "text-red-500"}`}>
-                                                ({alarm.active ? "Active" : "Inactive"})
-                                            </span>
-                                            <span className="ml-4 text-gray-500">
-                                                ({alarm.is_primary_schedule ? "Primary" : "Secondary"})
-                                            </span>
+                    {/* Alarms List */}
+                    <div className="mb-8 p-4 bg-gray-800 rounded-lg shadow">
+                        <h2 className="text-xl font-semibold mb-4 title-font">Alarms</h2>
+                        {isLoading ? (
+                            <p>Loading alarms...</p>
+                        ) : sortedAlarms.length === 0 ? (
+                            <p>No alarms set</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {sortedAlarms.map((alarm, index) => {
+                                    const showDivider = index > 0 && alarm.is_primary_schedule !== sortedAlarms[index - 1].is_primary_schedule;
+                                    return (
+                                        <div key={alarm.id}>
+                                            {showDivider && <Divider className="my-4 border-gray-600" />}
+                                            <div
+                                                className={`alarm-entry ${selectedAlarms.has(alarm.id) ? 'selected' : ''}`}
+                                                onClick={() => toggleAlarmSelection(alarm.id)}
+                                            >
+                                                <div className="flex justify-between items-center">
+                                                    <div>
+                                                        <span className="font-semibold">
+                                                            {formatTime(alarm.hour, alarm.minute)}
+                                                        </span>
+                                                        <span className="ml-4">
+                                                            {alarm.days.map(d => DAYS[d]).join(', ')}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-4">
+                                                        <span className={`px-2 py-1 rounded ${
+                                                            alarm.is_primary_schedule
+                                                                ? 'bg-blue-500 text-white'
+                                                                : 'bg-purple-500 text-white'
+                                                        }`}>
+                                                            {alarm.is_primary_schedule ? 'Primary' : 'Secondary'}
+                                                        </span>
+                                                        <div
+                                                            className={`status-chip ${alarm.active ? 'active' : 'inactive'}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleAlarmActive(alarm);
+                                                            }}
+                                                        >
+                                                            {alarm.active ? 'Active' : 'Inactive'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </li>
-                                ))}
-                            </ul>
+                                    );
+                                })}
+                                <button
+                                    onClick={handleDeleteSelectedAlarms}
+                                    className="w-full mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={selectedAlarms.size === 0}
+                                >
+                                    Delete {selectedAlarms.size > 1 ? "Alarms" : "Alarm"}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Audio Controls */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-gray-800 rounded-lg shadow">
+                            <h2 className="text-xl font-semibold mb-4 title-font">Alarm Sound</h2>
                             <button
-                                onClick={handleDeleteSelectedAlarms}
-                                disabled={selectedAlarms.size === 0}
-                                className={`w-full py-2 px-4 rounded-md font-medium transition-colors ${
-                                    selectedAlarms.size > 0
-                                        ? "bg-red-500 hover:bg-red-600 text-white"
-                                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                }`}
+                                onClick={isPlaying ? handleStopAlarm : handlePlayAlarm}
+                                className={`w-full px-4 py-2 rounded ${
+                                    isPlaying
+                                        ? 'bg-red-500 hover:bg-red-600'
+                                        : 'bg-green-500 hover:bg-green-600'
+                                } text-white`}
                             >
-                                Delete Selected Alarms
+                                {isPlaying ? 'Stop Alarm' : 'Test Alarm'}
                             </button>
                         </div>
-                    )}
-                </section>
+                        <div className="p-4 bg-gray-800 rounded-lg shadow">
+                            <h2 className="text-xl font-semibold mb-4 title-font">White Noise</h2>
+                            <button
+                                onClick={isWhiteNoiseActive ? handleStopWhiteNoise : handlePlayWhiteNoise}
+                                className={`w-full px-4 py-2 rounded ${
+                                    isWhiteNoiseActive
+                                        ? 'bg-red-500 hover:bg-red-600'
+                                        : 'bg-green-500 hover:bg-green-600'
+                                } text-white`}
+                            >
+                                {isWhiteNoiseActive ? 'Stop White Noise' : 'Play White Noise'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <ToastContainer position="bottom-right" theme="dark" />
             </div>
-            
-            {/* Toast Container */}
-            <ToastContainer
-                position="bottom-right"
-                autoClose={3000}
-                hideProgressBar={false}
-                newestOnTop
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-                theme="colored"
-            />
-        </div>
+        </LocalizationProvider>
     );
 };
 

@@ -1,4 +1,3 @@
 {
-    "is_primary_schedule": false,
-    "is_global_on": false
+    "schedule": "a"
 }
