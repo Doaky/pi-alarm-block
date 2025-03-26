@@ -13,6 +13,23 @@ A full-stack alarm clock application designed for Raspberry Pi 0W with physical 
 - **Modern Web Interface**: Clean, responsive UI built with React and Tailwind CSS
 - **Hardware Integration**: Full GPIO support for physical controls
 
+## Tech Stack
+
+### Frontend
+- React 18 with TypeScript
+- Vite for build tooling
+- Tailwind CSS for styling
+- React Toastify for notifications
+- Modern UI/UX with loading states and animations
+
+### Backend
+- FastAPI for RESTful API
+- Pydantic for data validation
+- Pygame for audio playback
+- GPIO for hardware controls
+- Thread-safe operations
+- Comprehensive logging
+
 ## Hardware Setup
 
 ### GPIO Pin Configuration
@@ -60,14 +77,18 @@ alarm-block/
 │   ├── data/           # JSON storage for alarms and settings
 │   ├── sounds/         # Alarm and white noise audio files
 │   ├── main.py         # FastAPI application entry point
-│   ├── alarm.py        # Alarm class definition
+│   ├── alarm.py        # Alarm class with Pydantic models
 │   ├── alarm_manager.py # Alarm scheduling and management
-│   ├── pi_handler.py   # Hardware interface and audio control
-│   └── settings_manager.py # Application settings management
+│   ├── audio_manager.py # Thread-safe audio control
+│   ├── pi_handler.py   # Hardware interface
+│   └── settings_manager.py # Settings with Pydantic models
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx    # Main React application
-│   │   └── ...        # Other React components
+│   │   ├── components/ # React components
+│   │   ├── types/     # TypeScript definitions
+│   │   ├── api/       # API integration
+│   │   ├── utils/     # Helper functions
+│   │   └── styles/    # CSS and Tailwind
 │   └── ...
 └── README.md
 ```
@@ -87,9 +108,10 @@ alarm-block/
 - `GET /get_global_status`: Get global alarm status
 - `POST /set_global_status`: Enable/disable all alarms
 
-## Frontend-Backend Communication
-
-The frontend communicates with the backend through RESTful API endpoints. The FastAPI backend serves the React frontend as static files, creating a single unified application. All API requests are made to the same origin, eliminating CORS concerns in production.
+### Audio Control
+- `POST /white-noise/volume`: Adjust white noise volume
+- `POST /white-noise/toggle`: Toggle white noise playback
+- `GET /white-noise/status`: Get white noise status
 
 ## Development
 
@@ -105,6 +127,17 @@ python backend/main.py
 cd frontend
 npm run dev
 ```
+
+## Key Features
+
+- Modern, responsive web interface
+- Real-time status updates
+- Thread-safe audio management
+- Comprehensive error handling
+- Type safety with TypeScript and Pydantic
+- Proper resource management
+- Logging for debugging
+- Clean component architecture
 
 ## License
 

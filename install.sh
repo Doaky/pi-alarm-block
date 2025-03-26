@@ -2,22 +2,7 @@
 
 # Run the following:
 # chmod +x install.sh
-# ./install.sh
-
-# Notes:
-# python3 -m venv venv
-# source venv/bin/activate
-# sudo apt install nodejs npm -y
-# sudo apt install python3-lgpio
-# sudo apt update
-# sudo apt install python3-rpi.gpio
-# sudo apt-get install python3-rpi-lgpio
-# pactl -- set-sink-volume 0 150%
-#speaker-test -c2 -twav -l3
-#source venv/bin/activate
-
-
-# uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload 
+# sudo ./install.sh
 
 # Make sure the script is being run as root (sudo)
 if [ "$(id -u)" -ne 0 ]; then
@@ -25,34 +10,54 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-echo "Installing Python 3 and pip..."
-# Update and install Python 3 and pip if not installed
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "Installing in directory: $PROJECT_DIR"
+
+echo "Installing system dependencies..."
 apt update
-apt install -y python3 python3-pip python3-dev
+apt install -y python3 python3-pip python3-dev python3-venv python3-rpi.gpio python3-lgpio nodejs npm
 
-echo "Installing required Python packages from requirements.txt..."
-# Install the Python packages required for the backend
-pip3 install -r requirements.txt
+# Create and activate virtual environment
+echo "Setting up Python virtual environment..."
+python3 -m venv "$PROJECT_DIR/venv"
+source "$PROJECT_DIR/venv/bin/activate"
 
-echo "Setting up frontend (React + Vite)..."
-# Go to the frontend directory and install npm dependencies
-cd frontend || { echo "Frontend directory not found"; exit 1; }
+echo "Installing Python packages..."
+pip3 install -r "$PROJECT_DIR/requirements.txt"
 
-# Ensure Node.js and npm are installed
-if ! command -v node &> /dev/null; then
-    echo "Node.js not found, installing..."
-    curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-fi
+echo "Setting up frontend..."
+cd "$PROJECT_DIR/frontend" || { echo "Frontend directory not found"; exit 1; }
 
-# Install frontend dependencies
+# Install frontend dependencies and build
 npm install
-
-# Build the frontend for production
 npm run build
 
-# Go back to the project root directory
-cd ..
+# Make start script executable
+chmod +x "$PROJECT_DIR/start.sh"
 
-echo "Installation complete!"
+# Create systemd service
+echo "Creating systemd service..."
+cat > /etc/systemd/system/alarm-block.service << EOL
+[Unit]
+Description=Alarm Block Service
+After=network.target
 
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$PROJECT_DIR
+ExecStart=$PROJECT_DIR/start.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+# Enable and start the service
+systemctl daemon-reload
+systemctl enable alarm-block.service
+systemctl start alarm-block.service
+
+echo "Installation complete! The service will now start automatically on boot."
+echo "You can check the status with: systemctl status alarm-block"
