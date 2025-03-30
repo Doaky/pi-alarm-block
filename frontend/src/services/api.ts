@@ -1,7 +1,9 @@
 import { Alarm, ScheduleType } from '../types/index';
 
+const API_BASE = '/api/v1';
+
 export const fetchAlarms = async (): Promise<Alarm[]> => {
-    const response = await fetch("/alarms");
+    const response = await fetch(`${API_BASE}/alarms`);
     if (!response.ok) {
         throw new Error('Failed to fetch alarms');
     }
@@ -9,7 +11,7 @@ export const fetchAlarms = async (): Promise<Alarm[]> => {
 };
 
 export const fetchSchedule = async (): Promise<{ schedule: ScheduleType }> => {
-    const response = await fetch("/get_schedule");
+    const response = await fetch(`${API_BASE}/get_schedule`);
     if (!response.ok) {
         throw new Error('Failed to fetch schedule');
     }
@@ -17,7 +19,7 @@ export const fetchSchedule = async (): Promise<{ schedule: ScheduleType }> => {
 };
 
 export const setSchedule = async (schedule: ScheduleType): Promise<void> => {
-    const response = await fetch("/set_schedule", {
+    const response = await fetch(`${API_BASE}/set_schedule`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schedule }),
@@ -28,7 +30,7 @@ export const setSchedule = async (schedule: ScheduleType): Promise<void> => {
 };
 
 export const setAlarm = async (alarm: Omit<Alarm, 'active'>): Promise<{ alarm: Alarm }> => {
-    const response = await fetch("/set-alarm", {
+    const response = await fetch(`${API_BASE}/set-alarm`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(alarm),
@@ -40,7 +42,7 @@ export const setAlarm = async (alarm: Omit<Alarm, 'active'>): Promise<{ alarm: A
 };
 
 export const playAlarm = async (): Promise<void> => {
-    const response = await fetch("/play-alarm", {
+    const response = await fetch(`${API_BASE}/play-alarm`, {
         method: "POST"
     });
     if (!response.ok) {
@@ -49,7 +51,7 @@ export const playAlarm = async (): Promise<void> => {
 };
 
 export const stopAlarm = async (): Promise<void> => {
-    const response = await fetch("/stop-alarm", {
+    const response = await fetch(`${API_BASE}/stop-alarm`, {
         method: "POST"
     });
     if (!response.ok) {
@@ -58,7 +60,7 @@ export const stopAlarm = async (): Promise<void> => {
 };
 
 export const playWhiteNoise = async (): Promise<void> => {
-    const response = await fetch("/white-noise/play", {
+    const response = await fetch(`${API_BASE}/white-noise/play`, {
         method: "POST"
     });
     if (!response.ok) {
@@ -67,7 +69,7 @@ export const playWhiteNoise = async (): Promise<void> => {
 };
 
 export const stopWhiteNoise = async (): Promise<void> => {
-    const response = await fetch("/white-noise/stop", {
+    const response = await fetch(`${API_BASE}/white-noise/stop`, {
         method: "POST"
     });
     if (!response.ok) {
@@ -76,7 +78,7 @@ export const stopWhiteNoise = async (): Promise<void> => {
 };
 
 export const adjustVolume = async (volume: number): Promise<void> => {
-    const response = await fetch("/volume", {
+    const response = await fetch(`${API_BASE}/volume`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ volume }),

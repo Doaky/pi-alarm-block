@@ -5,9 +5,7 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: true, // Allow connections from network
-    port: 5173,
-    strictPort: true
+    host: true // Allow connections from network
   },
   build: {
     outDir: 'dist',
