@@ -6,10 +6,15 @@ from pydantic import BaseModel, Field, DirectoryPath
 from pydantic_settings import BaseSettings
 from typing import Optional
 
+# Get user-specific directories
+USER_HOME = str(Path.home())
+USER_DATA_DIR = os.path.join(USER_HOME, ".local", "share", "alarm-block")
+USER_LOG_DIR = os.path.join(USER_HOME, ".local", "log", "alarm-block")
+
 class LogConfig(BaseModel):
     """Logging configuration."""
     file: str = Field(
-        "/var/log/alarm-block/alarm-block.log",
+        os.path.join(USER_LOG_DIR, "alarm-block.log"),
         description="Log file path"
     )
     format: str = Field(
@@ -23,7 +28,7 @@ class ServerConfig(BaseModel):
     host: str = Field("0.0.0.0", description="Server host")
     port: int = Field(8000, ge=1, le=65535, description="Server port")
     frontend_dir: DirectoryPath = Field(
-        "/opt/alarm-block/frontend/dist/",
+        os.path.join(USER_DATA_DIR, "frontend"),
         description="Frontend static files directory"
     )
 
@@ -32,7 +37,7 @@ class Config(BaseSettings):
     log: LogConfig = Field(default_factory=LogConfig)
     server: ServerConfig = Field(default_factory=ServerConfig)
     data_dir: DirectoryPath = Field(
-        "/var/lib/alarm-block/data",
+        os.path.join(USER_DATA_DIR, "data"),
         description="Data storage directory"
     )
 
@@ -46,6 +51,7 @@ config = Config()
 # Ensure directories exist
 os.makedirs(os.path.dirname(config.log.file), exist_ok=True)
 os.makedirs(config.data_dir, exist_ok=True)
+os.makedirs(config.server.frontend_dir, exist_ok=True)
 
 # Export variables for backward compatibility
 LOG_FILE = config.log.file

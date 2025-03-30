@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alarm-block"
+version = "0.1.0"
+description = "A Raspberry Pi alarm clock with physical controls"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.68.0",
+    "uvicorn[standard]>=0.15.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "pygame>=2.0.0",
+    "RPi.GPIO>=0.7.0",
+]
+
+[tool.setuptools]
+packages = ["backend"]
