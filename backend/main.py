@@ -4,12 +4,13 @@ import os
 import sys
 import logging
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 import uvicorn
 import time
+import shutil
 
 # Add project root to Python path
 project_root = str(Path(__file__).parent.parent)
@@ -49,21 +50,16 @@ app.add_middleware(
 # Add request logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """Log request timing and status code."""
     start_time = time.time()
     response = await call_next(request)
-    duration = time.time() - start_time
-    logger.info(
-        f"{request.method} {request.url.path} "
-        f"completed in {duration:.3f}s with status {response.status_code}"
-    )
+    process_time = time.time() - start_time
+    logger.info(f"{request.method} {request.url.path} - {response.status_code} - {process_time:.2f}s")
     return response
 
 # Add error handling middleware
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Global exception handler for unhandled errors."""
-    logger.error(f"Unhandled error on {request.url.path}: {str(exc)}", exc_info=True)
+    logger.error(f"Unhandled error: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"}
@@ -75,46 +71,86 @@ app.include_router(
     prefix="/api/v1",
     tags=["alarms"]
 )
+
 app.include_router(
     audio_routes.router,
     prefix="/api/v1",
     tags=["audio"]
 )
+
 app.include_router(
     schedule_routes.router,
     prefix="/api/v1",
-    tags=["schedule"]
+    tags=["schedules"]
 )
+
 app.include_router(
     system_routes.router,
     prefix="/api/v1",
     tags=["system"]
 )
 
-# Health check endpoint
-@app.get("/health", tags=["system"])
+@app.get("/health")
 async def health_check():
     """Check system health."""
     return {
         "status": "healthy",
-        "raspberry_pi": IS_RASPBERRY_PI,
-        "timestamp": time.time()
+        "timestamp": time.time(),
+        "is_raspberry_pi": IS_RASPBERRY_PI
     }
 
+@app.get("/logs")
+async def get_logs():
+    """View log file contents."""
+    try:
+        with open(config.log.file, 'r') as f:
+            content = f.read()
+        return HTMLResponse(f"<pre>{content}</pre>")
+    except Exception as e:
+        logger.error(f"Error reading log file: {e}")
+        raise HTTPException(status_code=500, detail="Error reading log file")
+
+# Copy frontend files if they don't exist
+frontend_dist = os.path.join(project_root, "frontend", "dist")
+if os.path.exists(frontend_dist):
+    logger.info(f"Copying frontend files from {frontend_dist} to {config.server.frontend_dir}")
+    os.makedirs(config.server.frontend_dir, exist_ok=True)
+    for item in os.listdir(frontend_dist):
+        src = os.path.join(frontend_dist, item)
+        dst = os.path.join(config.server.frontend_dir, item)
+        if os.path.isdir(src):
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+        else:
+            shutil.copy2(src, dst)
+
 # Serve React frontend
-app.mount("/", StaticFiles(directory=config.server.frontend_dir, html=True), name="frontend")
+try:
+    app.mount("/", StaticFiles(directory=config.server.frontend_dir, html=True), name="frontend")
+    logger.info(f"Serving frontend from {config.server.frontend_dir}")
+except Exception as e:
+    logger.error(f"Error mounting frontend directory: {e}")
+    # Serve a basic HTML page if frontend files are missing
+    @app.get("/")
+    async def serve_basic_page():
+        return HTMLResponse("""
+        <html>
+            <head><title>Alarm Block</title></head>
+            <body>
+                <h1>Alarm Block</h1>
+                <p>Frontend files not found. Please build the frontend first:</p>
+                <pre>
+                cd frontend
+                npm install
+                npm run build
+                </pre>
+            </body>
+        </html>
+        """)
 
 if __name__ == "__main__":
-    try:
-        uvicorn.run(
-            "main:app",
-            host=config.server.host,
-            port=config.server.port,
-            reload=True,
-            log_config=None  # Use our custom logging config
-        )
-    except KeyboardInterrupt:
-        logger.info("Received shutdown signal")
-    except Exception as e:
-        logger.error(f"Failed to start server: {str(e)}", exc_info=True)
-        raise
+    uvicorn.run(
+        "backend.main:app",
+        host=config.server.host,
+        port=config.server.port,
+        reload=True
+    )
