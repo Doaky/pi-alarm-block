@@ -1,0 +1,22 @@
+[Unit]
+Description=Alarm Block Service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/opt/alarm-block
+Environment=PYTHONPATH=/opt/alarm-block
+ExecStart=/usr/bin/python3 -m backend.main
+Restart=always
+RestartSec=3
+
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/log/alarm-block /var/lib/alarm-block
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

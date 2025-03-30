@@ -16,10 +16,10 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 
-from alarm import Alarm
+from backend.alarm import Alarm
+from backend.settings_manager import SettingsManager
 if IS_RASPBERRY_PI:
-    from pi_handler import PiHandler
-from settings_manager import SettingsManager
+    from backend.pi_handler import PiHandler
 
 # Configure logging
 logger = logging.getLogger(__name__)

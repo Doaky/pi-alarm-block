@@ -1,63 +1,98 @@
 #!/bin/bash
 
-# Run the following:
-# chmod +x install.sh
-# sudo ./install.sh
+# Exit on error
+set -e
 
-# Make sure the script is being run as root (sudo)
-if [ "$(id -u)" -ne 0 ]; then
-  echo "This script must be run with sudo or as root."
-  exit 1
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then
+    echo "Please run as root"
+    exit 1
 fi
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-echo "Installing in directory: $PROJECT_DIR"
+# Get the user who invoked sudo (or root if not using sudo)
+REAL_USER=${SUDO_USER:-$USER}
+if [ "$REAL_USER" = "root" ]; then
+    echo "Please run this script with sudo instead of as root directly"
+    exit 1
+fi
 
-echo "Installing system dependencies..."
-apt update
-apt install -y python3 python3-pip python3-dev python3-venv python3-rpi.gpio python3-lgpio nodejs npm
+# Get user's home directory
+USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+
+echo "Installing for user: $REAL_USER"
+echo "Home directory: $USER_HOME"
+
+# Install system dependencies
+apt-get update
+apt-get install -y python3 python3-pip python3-venv python3-dev
+
+# Create directories
+mkdir -p /opt/alarm-block
+mkdir -p /var/log/alarm-block
+mkdir -p /var/lib/alarm-block/data
+
+# Set permissions for the real user
+chown -R "$REAL_USER:$REAL_USER" /opt/alarm-block
+chown -R "$REAL_USER:$REAL_USER" /var/log/alarm-block
+chown -R "$REAL_USER:$REAL_USER" /var/lib/alarm-block
+
+# Copy application files
+cp -r backend /opt/alarm-block/
+cp -r frontend/dist /opt/alarm-block/frontend/
+cp setup.py /opt/alarm-block/
 
 # Create and activate virtual environment
-echo "Setting up Python virtual environment..."
-python3 -m venv "$PROJECT_DIR/venv"
-source "$PROJECT_DIR/venv/bin/activate"
+python3 -m venv /opt/alarm-block/venv
+source /opt/alarm-block/venv/bin/activate
 
-echo "Installing Python packages..."
-pip3 install -r "$PROJECT_DIR/requirements.txt"
+# Install Python dependencies in the virtual environment
+pip install --upgrade pip setuptools wheel
+pip install pydantic pydantic-settings fastapi "uvicorn[standard]"
+pip install -e /opt/alarm-block
 
-echo "Setting up frontend..."
-cd "$PROJECT_DIR/frontend" || { echo "Frontend directory not found"; exit 1; }
+# Deactivate virtual environment
+deactivate
 
-# Install frontend dependencies and build
-npm install
-npm run build
+# Fix virtual environment permissions
+chown -R "$REAL_USER:$REAL_USER" /opt/alarm-block/venv
 
-# Make start script executable
-chmod +x "$PROJECT_DIR/start.sh"
-
-# Create systemd service
-echo "Creating systemd service..."
-cat > /etc/systemd/system/alarm-block.service << EOL
+# Generate systemd service file with current user
+cat > /etc/systemd/system/alarm-block.service << EOF
 [Unit]
 Description=Alarm Block Service
 After=network.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=$PROJECT_DIR
-ExecStart=$PROJECT_DIR/start.sh
+User=$REAL_USER
+Group=$REAL_USER
+WorkingDirectory=/opt/alarm-block
+Environment=PATH=/opt/alarm-block/venv/bin:$PATH
+Environment=PYTHONPATH=/opt/alarm-block
+Environment=HOME=$USER_HOME
+ExecStart=/opt/alarm-block/venv/bin/python -m backend.main
 Restart=always
 RestartSec=3
 
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/log/alarm-block /var/lib/alarm-block
+PrivateTmp=yes
+
 [Install]
 WantedBy=multi-user.target
-EOL
+EOF
 
-# Enable and start the service
+# Start the service
 systemctl daemon-reload
-systemctl enable alarm-block.service
-systemctl start alarm-block.service
+systemctl enable alarm-block
+systemctl start alarm-block
 
-echo "Installation complete! The service will now start automatically on boot."
-echo "You can check the status with: systemctl status alarm-block"
+echo "Installation complete! Service is running at http://localhost:8000"
+echo "View logs at: http://localhost:8000/api/v1/log"
+echo "Check service status with: systemctl status alarm-block"
+
+echo ""
+echo "Virtual environment is at: /opt/alarm-block/venv"
+echo "To activate it manually: source /opt/alarm-block/venv/bin/activate"

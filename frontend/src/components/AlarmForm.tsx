@@ -1,9 +1,8 @@
 import { FC, FormEvent, Dispatch, SetStateAction } from 'react';
-import { toast } from 'react-toastify';
 import { ThemeProvider } from '@mui/material/styles';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import dayjs from 'dayjs';
-import { Alarm } from '../types/index';
+import { Theme } from '@mui/material/styles';
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -14,8 +13,8 @@ interface AlarmFormProps {
     setDays: Dispatch<SetStateAction<number[]>>;
     isPrimary: boolean;
     setIsPrimary: (isPrimary: boolean) => void;
-    setAlarms: Dispatch<SetStateAction<Alarm[]>>;
-    darkTheme: any;
+    handleSetAlarm: () => Promise<void>;
+    darkTheme: Theme;
 }
 
 export const AlarmForm: FC<AlarmFormProps> = ({
@@ -25,7 +24,7 @@ export const AlarmForm: FC<AlarmFormProps> = ({
     setDays,
     isPrimary,
     setIsPrimary,
-    setAlarms,
+    handleSetAlarm,
     darkTheme
 }) => {
     const toggleDay = (day: number) => {
@@ -36,59 +35,11 @@ export const AlarmForm: FC<AlarmFormProps> = ({
         );
     };
 
-    const parseTime = (time: dayjs.Dayjs | null): { hour: number, minute: number } => {
-        if (!time) return { hour: 0, minute: 0 };
-        return { hour: time.hour(), minute: time.minute() };
-    };
-
-    const handleSetAlarm = async (e: FormEvent) => {
-        e.preventDefault();
-
-        if (!selectedTime) {
-            toast.warning("Please select a time");
-            return;
-        }
-
-        if (days.length === 0) {
-            toast.warning("Please select at least one day");
-            return;
-        }
-
-        const { hour, minute } = parseTime(selectedTime);
-
-        const newAlarm = {
-            id: crypto.randomUUID(),
-            hour,
-            minute,
-            days: [...days].sort(),
-            is_primary_schedule: isPrimary,
-            active: true,
-        };
-
-        try {
-            const response = await fetch("/set-alarm", {
-                method: "PUT",
-                body: JSON.stringify(newAlarm),
-                headers: { "Content-Type": "application/json" }
-            });
-            
-            if (!response.ok) throw new Error("Failed to set alarm");
-            
-            const data = await response.json();
-            setAlarms((prev) => [...prev, data.alarm]);
-            toast.success("Alarm set successfully");
-            
-            // Reset form
-            setDays([]);
-            setSelectedTime(dayjs());
-        } catch (err) {
-            toast.error("Failed to set alarm");
-            console.error("Error setting alarm:", err);
-        }
-    };
-
     return (
-        <form onSubmit={handleSetAlarm} className="mb-8 p-4 bg-gray-800 rounded-lg shadow">
+        <form onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            handleSetAlarm();
+        }} className="mb-8 p-4 bg-gray-800 rounded-lg shadow">
             <h2 className="text-xl font-semibold mb-4 title-font">Set New Alarm</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>

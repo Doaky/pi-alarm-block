@@ -1,16 +1,16 @@
-import { useState, useEffect } from "react";
-import { toast, ToastContainer } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { createTheme } from '@mui/material/styles';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs from 'dayjs';
 import './styles.css';
 import { ScheduleControls } from './components/ScheduleControls';
 import { AlarmForm } from './components/AlarmForm';
 import { AlarmList } from './components/AlarmList';
 import { AudioControls } from './components/AudioControls';
-import { Alarm, ScheduleType } from './types/index';
+import { useAlarms } from './hooks/useAlarms';
+import { useAlarmForm } from './hooks/useAlarmForm';
+import { useAudio } from './hooks/useAudio';
 
 const darkTheme = createTheme({
     palette: {
@@ -19,45 +19,33 @@ const darkTheme = createTheme({
 });
 
 const App = () => {
-    // Alarm states
-    const [alarms, setAlarms] = useState<Alarm[]>([]);
-    const [selectedAlarms, setSelectedAlarms] = useState<Set<string>>(new Set());
+    // Custom hooks for state management
+    const {
+        alarms,
+        setAlarms,
+        selectedAlarms,
+        setSelectedAlarms,
+        currentSchedule,
+        setCurrentSchedule,
+        isLoading
+    } = useAlarms();
 
-    // Form states
-    const [selectedTime, setSelectedTime] = useState<dayjs.Dayjs | null>(dayjs());
-    const [days, setDays] = useState<number[]>([]);
-    const [isPrimary, setIsPrimary] = useState(true);
+    const {
+        selectedTime,
+        setSelectedTime,
+        days,
+        setDays,
+        isPrimary,
+        setIsPrimary,
+        handleSetAlarm
+    } = useAlarmForm((newAlarm) => setAlarms(prev => [...prev, newAlarm]));
 
-    // Global states
-    const [currentSchedule, setCurrentSchedule] = useState<ScheduleType>("a");
-    const [isLoading, setIsLoading] = useState(true);
-
-    // Audio states
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isWhiteNoiseActive, setIsWhiteNoiseActive] = useState(false);
-
-    useEffect(() => {
-        Promise.all([
-            fetch("/alarms")
-                .then(res => res.json())
-                .catch(err => {
-                    toast.error("Failed to fetch alarms");
-                    console.error("Error fetching alarms:", err);
-                    return [];
-                }),
-            fetch("/get_schedule")
-                .then(res => res.json())
-                .catch(err => {
-                    toast.error("Failed to fetch schedule");
-                    console.error("Error fetching schedule:", err);
-                    return { schedule: "a" };
-                })
-        ]).then(([alarmsData, scheduleData]) => {
-            setAlarms(alarmsData);
-            setCurrentSchedule(scheduleData.schedule);
-            setIsLoading(false);
-        });
-    }, []);
+    const {
+        isPlaying,
+        setIsPlaying,
+        isWhiteNoiseActive,
+        setIsWhiteNoiseActive
+    } = useAudio();
 
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -79,7 +67,7 @@ const App = () => {
                         setDays={setDays}
                         isPrimary={isPrimary}
                         setIsPrimary={setIsPrimary}
-                        setAlarms={setAlarms}
+                        handleSetAlarm={handleSetAlarm}
                         darkTheme={darkTheme}
                     />
 

@@ -1,144 +1,79 @@
 # Alarm Block
 
-A full-stack alarm clock application designed for Raspberry Pi 0W with physical controls and modern web interface.
+A modern alarm clock system for Raspberry Pi with dual schedules, white noise, and physical controls.
 
 ## Features
 
-- **Dual Alarm Schedules**: Switch between primary and secondary alarm schedules
-- **Physical Controls**:
-  - Three-Way Switch: Toggle between Primary/Secondary Schedule and Silent Mode
-  - Rotary Encoder: Adjust white noise volume and toggle playback
-  - Dismiss Button: Stop active alarms
-- **White Noise**: Built-in white noise playback with volume control
-- **Modern Web Interface**: Clean, responsive UI built with React and Tailwind CSS
-- **Hardware Integration**: Full GPIO support for physical controls
+- Dual alarm schedules
+- White noise playback
+- Physical controls via GPIO
+- Web interface for configuration
+- Systemd service for reliable operation
+- Real-time logging and monitoring
 
 ## Tech Stack
 
-### Frontend
-- React 18 with TypeScript
-- Vite for build tooling
-- Tailwind CSS for styling
-- React Toastify for notifications
-- Modern UI/UX with loading states and animations
+- **Frontend**: React + Vite + TypeScript + Tailwind CSS
+- **Backend**: FastAPI + Python
+- **Hardware**: Raspberry Pi GPIO for switches and buttons
+- **Audio**: Pygame for sound playback
 
-### Backend
-- FastAPI for RESTful API
-- Pydantic for data validation
-- Pygame for audio playback
-- GPIO for hardware controls
-- Thread-safe operations
-- Comprehensive logging
+## Quick Start
 
-## Hardware Setup
+1. **Development**:
+   ```bash
+   # Start backend development server
+   chmod +x dev.sh
+   ./dev.sh
 
-### GPIO Pin Configuration
-- GPIO 26: Rotary Encoder Pin A
-- GPIO 6: Rotary Encoder Pin B
-- GPIO 13: Rotary Encoder Button (White Noise Toggle)
-- GPIO 24: Schedule Switch
-- GPIO 25: Global Status Switch
+   # In another terminal, start frontend
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
-## Installation
+2. **Production**:
+   ```bash
+   # Build frontend
+   cd frontend && npm run build
 
-1. Clone the repository:
-```bash
-git clone https://github.com/Doaky/alarm-block.git
-cd alarm-block
-```
+   # Install service
+   sudo ./install.sh
+   ```
 
-2. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
+## Documentation
 
-3. Install frontend dependencies:
-```bash
-cd frontend
-npm install
-```
+- [Development Guide](DEVELOPMENT.md) - Detailed setup and development workflow
+- [API Documentation](DEVELOPMENT.md#api-documentation) - API endpoints and usage
+- [Hardware Setup](DEVELOPMENT.md#hardware-integration) - GPIO configuration
+- [Debugging Guide](DEVELOPMENT.md#debugging) - Common issues and solutions
 
-4. Build the frontend:
-```bash
-npm run build
-```
+## Directory Structure
 
-5. Start the application:
-```bash
-cd ..
-./start.sh
-```
+- `/backend` - Python backend code
+  - `/routes` - API endpoints
+  - `/models` - Data models
+  - `config.py` - Configuration settings
+  - `main.py` - Application entry point
 
-## Project Structure
+- `/frontend` - React frontend code
+  - `/src` - Source code
+  - `/dist` - Built files (after `npm run build`)
 
-```
-alarm-block/
-├── backend/
-│   ├── data/           # JSON storage for alarms and settings
-│   ├── sounds/         # Alarm and white noise audio files
-│   ├── main.py         # FastAPI application entry point
-│   ├── alarm.py        # Alarm class with Pydantic models
-│   ├── alarm_manager.py # Alarm scheduling and management
-│   ├── audio_manager.py # Thread-safe audio control
-│   ├── pi_handler.py   # Hardware interface
-│   └── settings_manager.py # Settings with Pydantic models
-├── frontend/
-│   ├── src/
-│   │   ├── components/ # React components
-│   │   ├── types/     # TypeScript definitions
-│   │   ├── api/       # API integration
-│   │   ├── utils/     # Helper functions
-│   │   └── styles/    # CSS and Tailwind
-│   └── ...
-└── README.md
-```
+## System Paths (Production)
 
-## API Endpoints
+- **Application**: `/opt/alarm-block/`
+- **Logs**: `/var/log/alarm-block/`
+- **Data**: `/var/lib/alarm-block/data/`
 
-### Alarm Management
-- `GET /alarms`: Retrieve all alarms
-- `PUT /set-alarm`: Create or update an alarm
-- `DELETE /alarms`: Delete specified alarms
+## Contributing
 
-### Control
-- `POST /stop-alarm`: Stop currently playing alarm
-- `POST /play-alarm`: Trigger alarm playback
-- `GET /get_schedule`: Get current schedule status
-- `POST /set_schedule`: Set primary/secondary schedule
-- `GET /get_global_status`: Get global alarm status
-- `POST /set_global_status`: Enable/disable all alarms
-
-### Audio Control
-- `POST /white-noise/volume`: Adjust white noise volume
-- `POST /white-noise/toggle`: Toggle white noise playback
-- `GET /white-noise/status`: Get white noise status
-
-## Development
-
-For development:
-
-1. Start the backend:
-```bash
-python backend/main.py
-```
-
-2. Start the frontend development server:
-```bash
-cd frontend
-npm run dev
-```
-
-## Key Features
-
-- Modern, responsive web interface
-- Real-time status updates
-- Thread-safe audio management
-- Comprehensive error handling
-- Type safety with TypeScript and Pydantic
-- Proper resource management
-- Logging for debugging
-- Clean component architecture
+1. Read the [Development Guide](DEVELOPMENT.md)
+2. Use `dev.sh` for development
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## License
 
-See LICENSE file for details.
+MIT License - See LICENSE file for details
