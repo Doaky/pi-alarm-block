@@ -9,16 +9,18 @@ IS_RASPBERRY_PI = is_raspberry_pi()
 
 import json
 import logging
-import os
+from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 
 from backend.alarm import Alarm
 from backend.settings_manager import SettingsManager
-if IS_RASPBERRY_PI:
+from backend.audio_manager import AudioManager
+
+if TYPE_CHECKING:
     from backend.pi_handler import PiHandler
 
 # Configure logging
@@ -27,19 +29,27 @@ logger = logging.getLogger(__name__)
 class AlarmManager:
     """Manages alarm scheduling, persistence, and triggering."""
 
-    def __init__(self, settings_manager: SettingsManager, pi_handler = None, file_path: str = "backend/data/alarms.json"):
-        """Initialize AlarmManager with settings, hardware interface, and storage path."""
-        self.pi_handler = pi_handler
+    def __init__(
+        self,
+        settings_manager: SettingsManager,
+        audio_manager: AudioManager,
+        pi_handler: Optional['PiHandler'] = None,
+    ):
+        """Initialize AlarmManager with settings, audio, and hardware interface."""
         self.settings_manager = settings_manager
-        self.file_path = file_path
+        self.audio_manager = audio_manager
+        self.pi_handler = pi_handler
         
-        # Ensure data directory exists
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
+        # Set up data file path
+        self.file_path = Path(settings_manager.data_dir) / "alarms.json"
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
+        
         # Initialize scheduler with timezone
         self.scheduler = BackgroundScheduler({'apscheduler.timezone': 'EST'})
-        self.scheduler.add_listener(self._handle_job_event, 
-                                  EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
+        self.scheduler.add_listener(
+            self._handle_job_event,
+            EVENT_JOB_ERROR | EVENT_JOB_EXECUTED
+        )
         
         # Load alarms and start scheduler
         self.alarms: Dict[str, Alarm] = {}
@@ -93,36 +103,34 @@ class AlarmManager:
             logger.error(f"Error removing alarms: {str(e)}")
             raise
 
-    def _save_alarms(self) -> None:
-        """Save alarms to JSON file with error handling."""
+    def _save_alarms(self):
+        """Save alarms to file."""
         try:
-            with open(self.file_path, "w") as file:
-                json.dump([alarm.to_dict() for alarm in self.alarms.values()], 
-                         file, indent=4)
-            logger.debug("Alarms saved successfully")
+            data = {
+                alarm_id: alarm.dict()
+                for alarm_id, alarm in self.alarms.items()
+            }
+            with open(self.file_path, 'w') as f:
+                json.dump(data, f, indent=2)
+            logger.info(f"Saved {len(self.alarms)} alarms to {self.file_path}")
         except Exception as e:
-            logger.error(f"Failed to save alarms: {str(e)}")
-            raise IOError(f"Error saving alarms: {str(e)}")
+            logger.error(f"Error saving alarms: {e}")
 
-    def _load_alarms(self) -> None:
-        """Load alarms from JSON file with error handling."""
+    def _load_alarms(self):
+        """Load alarms from file."""
         try:
-            if os.path.exists(self.file_path):
-                with open(self.file_path, "r") as file:
-                    alarms_data = json.load(file)
+            if self.file_path.exists():
+                with open(self.file_path, 'r') as f:
+                    data = json.load(f)
                     self.alarms = {
-                        alarm['id']: Alarm.from_dict(alarm) 
-                        for alarm in alarms_data
+                        alarm_id: Alarm(**alarm_data)
+                        for alarm_id, alarm_data in data.items()
                     }
-                logger.info(f"Loaded {len(self.alarms)} alarms")
+                logger.info(f"Loaded {len(self.alarms)} alarms from {self.file_path}")
             else:
-                logger.info("No existing alarms file found, starting fresh")
-                self.alarms = {}
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in alarms file: {str(e)}")
-            self.alarms = {}
+                logger.info(f"No alarms file found at {self.file_path}")
         except Exception as e:
-            logger.error(f"Error loading alarms: {str(e)}")
+            logger.error(f"Error loading alarms: {e}")
             self.alarms = {}
 
     def _schedule_add(self, alarm: Alarm) -> None:

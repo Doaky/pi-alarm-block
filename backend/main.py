@@ -1,6 +1,5 @@
 """Main entry point for the Alarm Block application."""
 
-import os
 import sys
 import logging
 from pathlib import Path
@@ -11,11 +10,12 @@ from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 import uvicorn
 import time
 import shutil
+import subprocess
 
 # Add project root to Python path
-project_root = str(Path(__file__).parent.parent)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 from backend.routes import alarm_routes, audio_routes, schedule_routes, system_routes
 from backend.dependencies import IS_RASPBERRY_PI
@@ -26,11 +26,51 @@ logging.basicConfig(
     level=getattr(logging, config.log.level),
     format=config.log.format,
     handlers=[
-        logging.FileHandler(config.log.file),
+        logging.FileHandler(str(config.log.file)),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
+
+def build_frontend():
+    """Build the frontend if dist directory doesn't exist."""
+    frontend_dist = project_root / "frontend" / "dist"
+    if not frontend_dist.exists():
+        logger.info("Frontend dist directory not found. Building frontend...")
+        frontend_dir = project_root / "frontend"
+        try:
+            # Run npm install and build
+            subprocess.run(["npm", "install"], cwd=str(frontend_dir), check=True)
+            subprocess.run(["npm", "run", "build"], cwd=str(frontend_dir), check=True)
+            logger.info("Frontend built successfully")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to build frontend: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error building frontend: {e}")
+            return False
+    return True
+
+def setup_frontend():
+    """Setup frontend files and return if successful."""
+    # Build frontend if needed
+    if not build_frontend():
+        return False
+
+    # Clean and copy frontend files
+    frontend_dist = project_root / "frontend" / "dist"
+    try:
+        # Clean existing files
+        if config.server.frontend_dir.exists():
+            shutil.rmtree(str(config.server.frontend_dir))
+        
+        # Copy new files
+        logger.info(f"Copying frontend files from {frontend_dist} to {config.server.frontend_dir}")
+        shutil.copytree(str(frontend_dist), str(config.server.frontend_dir))
+        return True
+    except Exception as e:
+        logger.error(f"Error setting up frontend files: {e}")
+        return False
 
 app = FastAPI(
     title="Alarm Block API",
@@ -103,46 +143,51 @@ async def health_check():
 async def get_logs():
     """View log file contents."""
     try:
-        with open(config.log.file, 'r') as f:
+        with open(str(config.log.file), 'r') as f:
             content = f.read()
         return HTMLResponse(f"<pre>{content}</pre>")
     except Exception as e:
         logger.error(f"Error reading log file: {e}")
         raise HTTPException(status_code=500, detail="Error reading log file")
 
-# Copy frontend files if they don't exist
-frontend_dist = os.path.join(project_root, "frontend", "dist")
-if os.path.exists(frontend_dist):
-    logger.info(f"Copying frontend files from {frontend_dist} to {config.server.frontend_dir}")
-    os.makedirs(config.server.frontend_dir, exist_ok=True)
-    for item in os.listdir(frontend_dist):
-        src = os.path.join(frontend_dist, item)
-        dst = os.path.join(config.server.frontend_dir, item)
-        if os.path.isdir(src):
-            shutil.copytree(src, dst, dirs_exist_ok=True)
-        else:
-            shutil.copy2(src, dst)
+# Setup frontend files
+frontend_ready = setup_frontend()
 
 # Serve React frontend
-try:
-    app.mount("/", StaticFiles(directory=config.server.frontend_dir, html=True), name="frontend")
-    logger.info(f"Serving frontend from {config.server.frontend_dir}")
-except Exception as e:
-    logger.error(f"Error mounting frontend directory: {e}")
-    # Serve a basic HTML page if frontend files are missing
+if frontend_ready:
+    try:
+        app.mount("/", StaticFiles(directory=str(config.server.frontend_dir), html=True), name="frontend")
+        logger.info(f"Serving frontend from {config.server.frontend_dir}")
+    except Exception as e:
+        logger.error(f"Error mounting frontend directory: {e}")
+        frontend_ready = False
+
+# Serve a basic HTML page if frontend files are missing
+if not frontend_ready:
     @app.get("/")
     async def serve_basic_page():
         return HTMLResponse("""
         <html>
-            <head><title>Alarm Block</title></head>
+            <head>
+                <title>Alarm Block</title>
+                <style>
+                    body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+                    pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; }
+                    .error { color: #dc3545; }
+                </style>
+            </head>
             <body>
                 <h1>Alarm Block</h1>
-                <p>Frontend files not found. Please build the frontend first:</p>
+                <p class="error">Frontend files not found or failed to build.</p>
+                <p>To manually build the frontend:</p>
                 <pre>
-                cd frontend
-                npm install
-                npm run build
+cd frontend
+npm install
+npm run build
                 </pre>
+                <p>The API is still accessible at <code>/api/v1/*</code></p>
+                <p>View logs at <a href="/logs">/logs</a></p>
+                <p>Check health at <a href="/health">/health</a></p>
             </body>
         </html>
         """)

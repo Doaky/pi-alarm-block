@@ -6,6 +6,7 @@ from functools import lru_cache
 
 from backend.alarm_manager import AlarmManager
 from backend.settings_manager import SettingsManager
+from backend.audio_manager import AudioManager
 from backend.config import config
 
 # Check for Raspberry Pi at module level
@@ -25,27 +26,31 @@ if IS_RASPBERRY_PI:
 @lru_cache()
 def get_settings_manager() -> SettingsManager:
     """Get or create SettingsManager instance."""
-    return SettingsManager(str(config.data_dir / "settings.json"))
+    return SettingsManager(str(config.data_dir))
+
+
+@lru_cache()
+def get_audio_manager() -> AudioManager:
+    """Get or create AudioManager instance."""
+    return AudioManager()
 
 
 @lru_cache()
 def get_pi_handler(
-    settings_manager: SettingsManager = Depends(get_settings_manager)
+    settings_manager: SettingsManager = Depends(get_settings_manager),
+    audio_manager: AudioManager = Depends(get_audio_manager)
 ) -> Optional[PiHandler]:
     """Get or create PiHandler instance if on Raspberry Pi."""
     if IS_RASPBERRY_PI:
-        return PiHandler(settings_manager)
+        return PiHandler(settings_manager, audio_manager)
     return None
 
 
 @lru_cache()
 def get_alarm_manager(
     settings_manager: SettingsManager = Depends(get_settings_manager),
+    audio_manager: AudioManager = Depends(get_audio_manager),
     pi_handler: Optional[PiHandler] = Depends(get_pi_handler)
 ) -> AlarmManager:
     """Get or create AlarmManager instance."""
-    return AlarmManager(
-        settings_manager,
-        pi_handler,
-        str(config.data_dir / "alarms.json")
-    )
+    return AlarmManager(settings_manager, audio_manager, pi_handler)

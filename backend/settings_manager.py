@@ -1,6 +1,6 @@
 import json
 import logging
-import os
+from pathlib import Path
 from typing import Dict, Optional, Literal
 from enum import Enum
 from pydantic import BaseModel, Field
@@ -37,67 +37,49 @@ class SettingsManager:
     validated and persisted to disk.
     """
 
-    def __init__(self, file_path: str = "backend/data/settings.json"):
+    def __init__(self, data_dir: str):
         """
-        Initialize SettingsManager with storage path.
+        Initialize SettingsManager with data directory.
         
         Args:
-            file_path: Path to the settings JSON file
+            data_dir: Path to the data directory
         """
-        self.file_path = file_path
+        self.data_dir = Path(data_dir)
+        self.file_path = self.data_dir / "settings.json"
         
         # Ensure data directory exists
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         
-        # Load initial settings
-        self._settings: Optional[Settings] = None
-        self._load_settings()
+        # Initialize settings
+        self._settings = self._load_settings()
         
         logger.info("SettingsManager initialized successfully")
 
-    def _load_settings(self) -> None:
-        """
-        Load and validate settings from JSON file.
-        
-        If the file doesn't exist or is invalid, creates default settings.
-        """
+    def _load_settings(self) -> Settings:
+        """Load settings from file with validation."""
         try:
-            if os.path.exists(self.file_path):
-                with open(self.file_path, "r") as file:
-                    data = json.load(file)
-                    self._settings = Settings(**data)
-                    logger.info("Settings loaded successfully")
+            if self.file_path.exists():
+                with open(self.file_path, 'r') as f:
+                    data = json.load(f)
+                settings = Settings(**data)
+                logger.info("Settings loaded successfully")
+                return settings
             else:
                 logger.info("No settings file found, using defaults")
-                self._settings = Settings()
-                self._save_settings()
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in settings file: {str(e)}")
-            self._settings = Settings()
-            self._save_settings()
+                return Settings()
         except Exception as e:
-            logger.error(f"Error loading settings: {str(e)}")
-            self._settings = Settings()
-            self._save_settings()
+            logger.error(f"Error loading settings: {e}")
+            return Settings()
 
     def _save_settings(self) -> None:
-        """
-        Save current settings to JSON file.
-        
-        Raises:
-            IOError: If unable to write to the settings file
-        """
+        """Save current settings to file."""
         try:
-            with open(self.file_path, "w") as file:
-                json.dump(
-                    self._settings.model_dump(),
-                    file,
-                    indent=4
-                )
-            logger.debug("Settings saved successfully")
+            with open(self.file_path, 'w') as f:
+                json.dump(self._settings.dict(), f, indent=2)
+            logger.info("Settings saved successfully")
         except Exception as e:
-            logger.error(f"Failed to save settings: {str(e)}")
-            raise IOError(f"Error saving settings: {str(e)}")
+            logger.error(f"Error saving settings: {e}")
+            raise
 
     def get_settings(self) -> Dict:
         """
@@ -106,7 +88,7 @@ class SettingsManager:
         Returns:
             dict: Dictionary containing all settings
         """
-        return self._settings.model_dump()
+        return self._settings.dict()
 
     def update_settings(self, settings: Dict) -> None:
         """
@@ -121,7 +103,7 @@ class SettingsManager:
         try:
             # Create new settings object with updates
             new_settings = Settings(**{
-                **self._settings.model_dump(),
+                **self._settings.dict(),
                 **settings
             })
             
@@ -130,8 +112,8 @@ class SettingsManager:
             self._save_settings()
             logger.info("Settings updated successfully")
         except Exception as e:
-            logger.error(f"Failed to update settings: {str(e)}")
-            raise ValueError(f"Invalid settings: {str(e)}")
+            logger.error(f"Failed to update settings: {e}")
+            raise ValueError(f"Invalid settings: {e}")
 
     def get_schedule(self) -> str:
         """
@@ -157,8 +139,8 @@ class SettingsManager:
             self._save_settings()
             logger.info(f"Schedule set to: {schedule}")
         except Exception as e:
-            logger.error(f"Failed to set schedule: {str(e)}")
-            raise ValueError(f"Invalid schedule type: {str(e)}")
+            logger.error(f"Failed to set schedule: {e}")
+            raise ValueError(f"Invalid schedule type: {e}")
 
     def get_is_primary_schedule(self) -> bool:
         """
@@ -185,5 +167,5 @@ class SettingsManager:
             self._save_settings()
             logger.info("Settings reset to defaults")
         except Exception as e:
-            logger.error(f"Failed to reset settings: {str(e)}")
+            logger.error(f"Failed to reset settings: {e}")
             raise
