@@ -1,16 +1,6 @@
-def is_raspberry_pi():
-    try:
-        import RPi.GPIO
-        return True
-    except (RuntimeError, ModuleNotFoundError):
-        return False
-
-IS_RASPBERRY_PI = is_raspberry_pi()
-
 import json
 import logging
 from pathlib import Path
-from datetime import datetime
 from typing import Dict, List, Optional, TYPE_CHECKING
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -19,9 +9,10 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from backend.alarm import Alarm
 from backend.settings_manager import SettingsManager
 from backend.audio_manager import AudioManager
+from backend.config import USE_PI_HARDWARE
 
 if TYPE_CHECKING:
-    from backend.pi_handler import PiHandler
+    from backend.dependencies import PiHandler
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -40,8 +31,12 @@ class AlarmManager:
         self.audio_manager = audio_manager
         self.pi_handler = pi_handler
         
-        # Set up data file path
-        self.file_path = Path(settings_manager.data_dir) / "alarms.json"
+        # Always use the project's data directory for development
+        # This ensures we're always reading from and writing to the same file
+        self.file_path = Path(__file__).parent / "data" / "alarms.json"
+        logger.info(f"Using project data directory for alarms: {self.file_path}")
+        
+        # Ensure parent directory exists
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Initialize scheduler with timezone
@@ -77,6 +72,8 @@ class AlarmManager:
             # Update alarm and schedule
             self.alarms[alarm.id] = alarm
             self._schedule_add(alarm)
+            
+            # Always save alarms to disk after setting an alarm
             self._save_alarms()
             
             logger.info(f"Alarm set successfully: {alarm.id} - {alarm.hour:02d}:{alarm.minute:02d}")
@@ -106,13 +103,19 @@ class AlarmManager:
     def _save_alarms(self):
         """Save alarms to file."""
         try:
-            data = {
-                alarm_id: alarm.dict()
-                for alarm_id, alarm in self.alarms.items()
-            }
+            # Save as array of alarms instead of dictionary
+            data = [alarm.to_dict() for alarm in self.alarms.values()]
+            logger.info(f"Saving {len(data)} alarms to {self.file_path}")
+            
             with open(self.file_path, 'w') as f:
-                json.dump(data, f, indent=2)
-            logger.info(f"Saved {len(self.alarms)} alarms to {self.file_path}")
+                json.dump(data, f, indent=4)
+            
+            # Verify the file was written correctly
+            if self.file_path.exists():
+                file_size = self.file_path.stat().st_size
+                logger.info(f"Successfully saved alarms to {self.file_path} (size: {file_size} bytes)")
+            else:
+                logger.error(f"Failed to save alarms: File {self.file_path} does not exist after write")
         except Exception as e:
             logger.error(f"Error saving alarms: {e}")
 
@@ -120,15 +123,42 @@ class AlarmManager:
         """Load alarms from file."""
         try:
             if self.file_path.exists():
+                logger.info(f"Loading alarms from {self.file_path}")
+                file_size = self.file_path.stat().st_size
+                logger.info(f"Alarms file size: {file_size} bytes")
+                
                 with open(self.file_path, 'r') as f:
+                    file_content = f.read()
+                    logger.info(f"File content: {file_content[:100]}...")  # Log first 100 chars
+                    
+                    # Reset file pointer and load JSON
+                    f.seek(0)
                     data = json.load(f)
-                    self.alarms = {
-                        alarm_id: Alarm(**alarm_data)
-                        for alarm_id, alarm_data in data.items()
-                    }
-                logger.info(f"Loaded {len(self.alarms)} alarms from {self.file_path}")
+                    
+                    # Handle array format (current format in the file)
+                    if isinstance(data, list):
+                        logger.info(f"Detected array format with {len(data)} alarms")
+                        self.alarms = {}
+                        for alarm_data in data:
+                            try:
+                                alarm = Alarm(**alarm_data)
+                                self.alarms[alarm.id] = alarm
+                                logger.info(f"Loaded alarm: {alarm.id} - {alarm.hour:02d}:{alarm.minute:02d}")
+                            except Exception as e:
+                                logger.error(f"Error loading individual alarm: {e}")
+                        logger.info(f"Loaded {len(self.alarms)} alarms from array format")
+                    # Handle dictionary format (for backward compatibility)
+                    else:
+                        logger.info(f"Detected dictionary format with {len(data)} alarms")
+                        self.alarms = {
+                            alarm_id: Alarm(**alarm_data)
+                            for alarm_id, alarm_data in data.items()
+                        }
+                        logger.info(f"Loaded {len(self.alarms)} alarms from dictionary format")
+                        
+                logger.info(f"Successfully loaded {len(self.alarms)} alarms from {self.file_path}")
             else:
-                logger.info(f"No alarms file found at {self.file_path}")
+                logger.warning(f"No alarms file found at {self.file_path}, starting with empty alarms")
         except Exception as e:
             logger.error(f"Error loading alarms: {e}")
             self.alarms = {}

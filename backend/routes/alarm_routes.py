@@ -38,12 +38,17 @@ async def set_alarm(
                 minute=alarm_data.get("minute"),
                 days=alarm_data.get("days"),
                 is_primary_schedule=alarm_data.get("is_primary_schedule"),
-                active=alarm_data.get("active"),
+                active=alarm_data.get("active", True),
             )
         except (ValueError, KeyError) as e:
             raise ValidationError(f"Invalid alarm data: {str(e)}")
         
+        # Set the alarm and explicitly save it
         alarm_manager.set_alarm(alarm_obj)
+        
+        # Force a save to ensure it's written to disk
+        alarm_manager._save_alarms()
+        
         logger.info(f"Alarm set successfully: {alarm_obj.id}")
         return {"message": "Alarm set successfully", "alarm": alarm_obj.to_dict()}
     except ValidationError as e:
@@ -62,14 +67,18 @@ async def remove_alarms(
     try:
         if not alarm_ids:
             raise ValidationError("No alarm IDs provided")
+        
+        # Remove the alarms
         removed_all = alarm_manager.remove_alarms(alarm_ids)
+        
+        # Force a save to ensure changes are written to disk
+        alarm_manager._save_alarms()
+        
         if not removed_all:
-            logger.warning("Some alarms were not found during deletion")
-            return JSONResponse(
-                status_code=207,
-                content={"message": "Some alarms were not found", "success": False}
-            )
-        logger.info(f"Removed alarms: {alarm_ids}")
+            logger.warning(f"Some alarms could not be removed: {alarm_ids}")
+            return {"message": "Some alarms could not be removed"}
+            
+        logger.info(f"Alarms removed successfully: {alarm_ids}")
         return {"message": "Alarms removed successfully"}
     except ValidationError as e:
         logger.error(f"Validation error: {str(e)}")

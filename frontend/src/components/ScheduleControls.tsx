@@ -11,8 +11,8 @@ interface ScheduleControlsProps {
 export const ScheduleControls: FC<ScheduleControlsProps> = ({ currentSchedule, setCurrentSchedule }) => {
     const handleScheduleChange = async (schedule: ScheduleType) => {
         try {
-            const response = await fetch("/set_schedule", {
-                method: "POST",
+            const response = await fetch("/api/v1/schedule", {
+                method: "PUT",
                 body: JSON.stringify({ schedule }),
                 headers: { "Content-Type": "application/json" }
             });

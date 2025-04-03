@@ -1,6 +1,7 @@
 """Centralized error handling for the application."""
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from typing import Optional, Dict, Any
 
 class AlarmBlockError(HTTPException):
@@ -31,3 +32,25 @@ class HardwareError(AlarmBlockError):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             extra=extra
         )
+
+async def handle_validation_error(request: Request, exc: ValidationError) -> JSONResponse:
+    """Handle ValidationError exceptions."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": "Validation Error",
+            "message": exc.detail,
+            "extra": exc.extra
+        }
+    )
+
+async def handle_hardware_error(request: Request, exc: HardwareError) -> JSONResponse:
+    """Handle HardwareError exceptions."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": "Hardware Error",
+            "message": exc.detail,
+            "extra": exc.extra
+        }
+    )

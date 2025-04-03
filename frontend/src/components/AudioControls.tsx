@@ -16,7 +16,7 @@ export const AudioControls: FC<AudioControlsProps> = ({
 }) => {
     const handlePlayAlarm = async () => {
         try {
-            const response = await fetch("/play-alarm", { method: "POST" });
+            const response = await fetch("/api/v1/play-alarm", { method: "POST" });
             if (!response.ok) throw new Error("Failed to play alarm");
             setIsPlaying(true);
         } catch (err) {
@@ -27,7 +27,7 @@ export const AudioControls: FC<AudioControlsProps> = ({
 
     const handleStopAlarm = async () => {
         try {
-            const response = await fetch("/stop-alarm", { method: "POST" });
+            const response = await fetch("/api/v1/stop-alarm", { method: "POST" });
             if (!response.ok) throw new Error("Failed to stop alarm");
             setIsPlaying(false);
         } catch (err) {
@@ -38,7 +38,11 @@ export const AudioControls: FC<AudioControlsProps> = ({
 
     const handlePlayWhiteNoise = async () => {
         try {
-            const response = await fetch("/white-noise/play", { method: "POST" });
+            const response = await fetch("/api/v1/white-noise", { 
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "play" })
+            });
             if (!response.ok) throw new Error("Failed to play white noise");
             setIsWhiteNoiseActive(true);
         } catch (err) {
@@ -49,7 +53,11 @@ export const AudioControls: FC<AudioControlsProps> = ({
 
     const handleStopWhiteNoise = async () => {
         try {
-            const response = await fetch("/white-noise/stop", { method: "POST" });
+            const response = await fetch("/api/v1/white-noise", { 
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "stop" })
+            });
             if (!response.ok) throw new Error("Failed to stop white noise");
             setIsWhiteNoiseActive(false);
         } catch (err) {

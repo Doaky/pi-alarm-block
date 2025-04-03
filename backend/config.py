@@ -3,9 +3,35 @@
 from pathlib import Path
 import os
 import sys
-from pydantic import BaseModel, Field, validator
+import platform
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, Dict, Any
+
+# Function to detect if running on a Raspberry Pi
+def is_raspberry_pi() -> bool:
+    """Detect if the current system is a Raspberry Pi."""
+    try:
+        # Check for Raspberry Pi model in /proc/cpuinfo
+        if Path('/proc/cpuinfo').exists():
+            with open('/proc/cpuinfo', 'r') as f:
+                cpuinfo = f.read()
+                if 'Raspberry Pi' in cpuinfo or 'BCM' in cpuinfo:
+                    return True
+        
+        # Try importing RPi.GPIO as a fallback
+        try:
+            import RPi.GPIO
+            return True
+        except (ImportError, RuntimeError):
+            pass
+        
+        return False
+    except Exception:
+        return False
+
+# Detect platform
+IS_RASPBERRY_PI = is_raspberry_pi()
 
 # Get user-specific directories
 USER_HOME = Path.home()
@@ -55,20 +81,20 @@ class Config(BaseSettings):
         USER_DATA_DIR / "data",
         description="Data storage directory"
     )
-
-    @validator('data_dir', 'server.frontend_dir', pre=True)
-    def validate_directories(cls, v):
-        path = Path(v)
-        if not path.exists():
-            try:
-                path.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                print(f"Error creating directory {path}: {e}")
-        return path
+    dev_mode: bool = Field(
+        not IS_RASPBERRY_PI,  # Default to dev mode if not on a Raspberry Pi
+        description="Development mode (disables hardware-specific features)"
+    )
+    force_pi_mode: bool = Field(
+        False,
+        description="Force Raspberry Pi mode even in development"
+    )
 
     class Config:
         env_prefix = "ALARM_BLOCK_"
         case_sensitive = False
+        env_file = ".env"
+        env_file_encoding = "utf-8"
 
 # Create config instance
 config = Config()
@@ -82,6 +108,18 @@ except Exception as e:
     print(f"Error creating log file: {e}")
     sys.exit(1)
 
+# Ensure directories exist
+try:
+    if not config.data_dir.exists():
+        config.data_dir.mkdir(parents=True, exist_ok=True)
+    if not config.server.frontend_dir.exists():
+        config.server.frontend_dir.mkdir(parents=True, exist_ok=True)
+except Exception as e:
+    print(f"Error creating directories: {e}")
+
+# Determine if we should use Raspberry Pi hardware features
+USE_PI_HARDWARE = (IS_RASPBERRY_PI or config.force_pi_mode) and not config.dev_mode
+
 # Export variables for backward compatibility
 LOG_FILE = str(config.log.file)
 LOG_FORMAT = config.log.format
@@ -90,3 +128,6 @@ DATA_DIR = str(config.data_dir)
 FRONTEND_DIR = str(config.server.frontend_dir)
 HOST = config.server.host
 PORT = config.server.port
+
+# Export development mode flag for use in other modules
+DEV_MODE = config.dev_mode

@@ -6,6 +6,9 @@ import pygame
 from pygame import mixer
 from pydantic import BaseModel, Field, validator
 
+# Import config to check for development mode
+from backend.config import DEV_MODE
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -30,24 +33,12 @@ class AudioConfig(BaseModel):
         description="Directory containing sound files"
     )
 
-    @validator('alarm_sound', 'white_noise_sound')
-    def validate_sound_file(cls, v, values):
-        """Validate that sound files exist."""
-        if 'sounds_dir' in values:
-            path = os.path.join(values['sounds_dir'], v)
-            if not os.path.isfile(path):
-                raise ValueError(f"Sound file not found: {path}")
+    @validator('volume')
+    def volume_must_be_valid(cls, v):
+        if not 0 <= v <= 100:
+            raise ValueError('Volume must be between 0 and 100')
         return v
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "volume": 50,
-                "alarm_sound": "alarm.mp3",
-                "white_noise_sound": "white_noise.mp3",
-                "sounds_dir": "backend/sounds"
-            }
-        }
 
 class AudioManager:
     """
@@ -79,177 +70,229 @@ class AudioManager:
         # Create sounds directory if it doesn't exist
         os.makedirs(self._config.sounds_dir, exist_ok=True)
 
-        # Initialize Pygame mixer
-        try:
-            pygame.mixer.init()
-            pygame.mixer.set_num_channels(8)  # Reserve channels for different sounds
-            self._set_volume(self._config.volume)
-            logger.info("Audio system initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize audio system: {str(e)}")
-            raise RuntimeError(f"Failed to initialize audio system: {str(e)}")
-
         # Initialize state
         self._lock = threading.Lock()
-        self._alarm_channel: Optional[pygame.mixer.Channel] = None
-        self._white_noise_channel: Optional[pygame.mixer.Channel] = None
-        self._sounds: Dict[str, pygame.mixer.Sound] = {}
-        self._load_sounds()
+        self._volume = self._config.volume
+        
+        # Check if we're in development mode
+        if DEV_MODE:
+            logger.info("Running in development mode - using mock audio implementation")
+            # In development mode, we don't initialize pygame mixer
+            self._mock_mode = True
+            self._alarm_playing = False
+            self._white_noise_playing = False
+        else:
+            # Only initialize pygame mixer when not in development mode
+            self._mock_mode = False
+            try:
+                pygame.mixer.init()
+                pygame.mixer.set_num_channels(8)  # Reserve channels for different sounds
+                self._set_volume(self._config.volume)
+                logger.info("Audio system initialized successfully")
+                
+                # Initialize pygame-specific state
+                self._alarm_channel: Optional[pygame.mixer.Channel] = None
+                self._white_noise_channel: Optional[pygame.mixer.Channel] = None
+                self._sounds: Dict[str, pygame.mixer.Sound] = {}
+                self._load_sounds()
+            except Exception as e:
+                logger.error(f"Failed to initialize audio system: {str(e)}")
+                raise RuntimeError(f"Failed to initialize audio system: {str(e)}")
 
     def _load_sounds(self) -> None:
         """
         Load sound files into memory.
         
         Raises:
-            RuntimeError: If sound loading fails
+            RuntimeError: If sound files cannot be loaded
         """
+        if self._mock_mode:
+            return
+            
         try:
-            self._sounds['alarm'] = pygame.mixer.Sound(
-                os.path.join(self._config.sounds_dir, self._config.alarm_sound)
-            )
-            self._sounds['white_noise'] = pygame.mixer.Sound(
-                os.path.join(self._config.sounds_dir, self._config.white_noise_sound)
-            )
-            logger.debug("Sound files loaded successfully")
+            # Load alarm sound
+            alarm_path = os.path.join(self._config.sounds_dir, self._config.alarm_sound)
+            if os.path.exists(alarm_path):
+                self._sounds['alarm'] = pygame.mixer.Sound(alarm_path)
+                logger.info(f"Loaded alarm sound: {alarm_path}")
+            else:
+                logger.warning(f"Alarm sound file not found: {alarm_path}")
+            
+            # Load white noise sound
+            white_noise_path = os.path.join(self._config.sounds_dir, self._config.white_noise_sound)
+            if os.path.exists(white_noise_path):
+                self._sounds['white_noise'] = pygame.mixer.Sound(white_noise_path)
+                logger.info(f"Loaded white noise sound: {white_noise_path}")
+            else:
+                logger.warning(f"White noise sound file not found: {white_noise_path}")
         except Exception as e:
-            logger.error(f"Failed to load sound files: {str(e)}")
-            raise RuntimeError(f"Failed to load sound files: {str(e)}")
+            logger.error(f"Failed to load sounds: {str(e)}")
+            raise RuntimeError(f"Failed to load sounds: {str(e)}")
 
     def _set_volume(self, volume: int) -> None:
         """
-        Set the global volume level.
+        Set the volume level for all channels.
         
         Args:
             volume: Volume level (0-100)
         """
-        pygame.mixer.music.set_volume(volume / 100.0)
-
-    def get_volume(self) -> int:
-        """
-        Get the current volume level.
+        self._volume = max(0, min(volume, 100))
         
-        Returns:
-            int: Current volume (0-100)
-        """
-        return self._config.volume
-
-    def set_volume(self, volume: int) -> None:
-        """
-        Set the volume level with thread safety.
-        
-        Args:
-            volume: Volume level (0-100)
-            
-        Raises:
-            ValueError: If volume is out of range
-        """
-        try:
-            with self._lock:
-                self._config.volume = volume
-                self._set_volume(volume)
-            logger.debug(f"Volume set to {volume}")
-        except Exception as e:
-            logger.error(f"Failed to set volume: {str(e)}")
-            raise ValueError(f"Invalid volume level: {str(e)}")
+        if not self._mock_mode:
+            # Convert 0-100 scale to 0.0-1.0 for pygame
+            pygame_volume = self._volume / 100.0
+            pygame.mixer.music.set_volume(pygame_volume)
+            logger.debug(f"Set volume to {self._volume}%")
 
     def play_alarm(self) -> None:
         """
-        Play the alarm sound with thread safety.
+        Play the alarm sound.
         
-        The alarm sound will loop until explicitly stopped.
-        
-        Raises:
-            RuntimeError: If playback fails
+        If an alarm is already playing, this will restart it.
         """
-        try:
-            with self._lock:
-                if self._alarm_channel and self._alarm_channel.get_busy():
-                    logger.debug("Alarm already playing")
+        with self._lock:
+            if self._mock_mode:
+                self._alarm_playing = True
+                logger.info("Mock mode: Alarm started playing")
+                return
+                
+            try:
+                if 'alarm' not in self._sounds:
+                    logger.warning("Alarm sound not loaded")
                     return
-
+                
+                # Stop any currently playing alarm
+                self.stop_alarm()
+                
+                # Play the alarm on a dedicated channel
                 self._alarm_channel = pygame.mixer.find_channel()
-                if not self._alarm_channel:
-                    raise RuntimeError("No available audio channels")
-
-                self._alarm_channel.play(self._sounds['alarm'], loops=-1)
-                logger.info("Alarm playback started")
-        except Exception as e:
-            logger.error(f"Failed to play alarm: {str(e)}")
-            raise RuntimeError(f"Failed to play alarm: {str(e)}")
+                if self._alarm_channel:
+                    self._alarm_channel.set_volume(self._volume / 100.0)
+                    self._alarm_channel.play(self._sounds['alarm'], loops=-1)  # Loop indefinitely
+                    logger.info("Alarm started playing")
+                else:
+                    logger.warning("No available channel to play alarm")
+            except Exception as e:
+                logger.error(f"Failed to play alarm: {str(e)}")
 
     def stop_alarm(self) -> None:
-        """
-        Stop the alarm sound with thread safety.
-        """
-        try:
-            with self._lock:
-                if self._alarm_channel:
+        """Stop the currently playing alarm."""
+        with self._lock:
+            if self._mock_mode:
+                self._alarm_playing = False
+                logger.info("Mock mode: Alarm stopped")
+                return
+                
+            try:
+                if self._alarm_channel and self._alarm_channel.get_busy():
                     self._alarm_channel.stop()
-                    self._alarm_channel = None
-                    logger.info("Alarm playback stopped")
-        except Exception as e:
-            logger.error(f"Error stopping alarm: {str(e)}")
+                    logger.info("Alarm stopped")
+            except Exception as e:
+                logger.error(f"Failed to stop alarm: {str(e)}")
 
     def play_white_noise(self) -> None:
         """
-        Play white noise with thread safety.
+        Play white noise.
         
-        The white noise will loop until explicitly stopped.
-        
-        Raises:
-            RuntimeError: If playback fails
+        If white noise is already playing, this will restart it.
         """
-        try:
-            with self._lock:
-                if self._white_noise_channel and self._white_noise_channel.get_busy():
-                    logger.debug("White noise already playing")
+        with self._lock:
+            if self._mock_mode:
+                self._white_noise_playing = True
+                logger.info("Mock mode: White noise started playing")
+                return
+                
+            try:
+                if 'white_noise' not in self._sounds:
+                    logger.warning("White noise sound not loaded")
                     return
-
+                
+                # Stop any currently playing white noise
+                self.stop_white_noise()
+                
+                # Play white noise on a dedicated channel
                 self._white_noise_channel = pygame.mixer.find_channel()
-                if not self._white_noise_channel:
-                    raise RuntimeError("No available audio channels")
-
-                self._white_noise_channel.play(self._sounds['white_noise'], loops=-1)
-                logger.info("White noise playback started")
-        except Exception as e:
-            logger.error(f"Failed to play white noise: {str(e)}")
-            raise RuntimeError(f"Failed to play white noise: {str(e)}")
+                if self._white_noise_channel:
+                    self._white_noise_channel.set_volume(self._volume / 100.0)
+                    self._white_noise_channel.play(self._sounds['white_noise'], loops=-1)  # Loop indefinitely
+                    logger.info("White noise started playing")
+                else:
+                    logger.warning("No available channel to play white noise")
+            except Exception as e:
+                logger.error(f"Failed to play white noise: {str(e)}")
 
     def stop_white_noise(self) -> None:
-        """
-        Stop white noise with thread safety.
-        """
-        try:
-            with self._lock:
-                if self._white_noise_channel:
+        """Stop the currently playing white noise."""
+        with self._lock:
+            if self._mock_mode:
+                self._white_noise_playing = False
+                logger.info("Mock mode: White noise stopped")
+                return
+                
+            try:
+                if self._white_noise_channel and self._white_noise_channel.get_busy():
                     self._white_noise_channel.stop()
-                    self._white_noise_channel = None
-                    logger.info("White noise playback stopped")
-        except Exception as e:
-            logger.error(f"Error stopping white noise: {str(e)}")
+                    logger.info("White noise stopped")
+            except Exception as e:
+                logger.error(f"Failed to stop white noise: {str(e)}")
 
-    def stop_all_sounds(self) -> None:
+    def adjust_volume(self, volume: int) -> None:
         """
-        Stop all playing sounds with thread safety.
+        Adjust the volume level for all audio.
+        
+        Args:
+            volume: Volume level (0-100)
+        
+        Raises:
+            ValueError: If volume is outside the valid range
         """
-        try:
-            with self._lock:
-                pygame.mixer.stop()
-                self._alarm_channel = None
-                self._white_noise_channel = None
-                logger.info("All sound playback stopped")
-        except Exception as e:
-            logger.error(f"Error stopping all sounds: {str(e)}")
+        if not 0 <= volume <= 100:
+            raise ValueError("Volume must be between 0 and 100")
+        
+        with self._lock:
+            self._set_volume(volume)
+            logger.info(f"Volume adjusted to {volume}%")
+
+    def is_alarm_playing(self) -> bool:
+        """Check if an alarm is currently playing."""
+        with self._lock:
+            if self._mock_mode:
+                return self._alarm_playing
+                
+            return self._alarm_channel is not None and self._alarm_channel.get_busy()
+
+    def is_white_noise_playing(self) -> bool:
+        """Check if white noise is currently playing."""
+        with self._lock:
+            if self._mock_mode:
+                return self._white_noise_playing
+                
+            return self._white_noise_channel is not None and self._white_noise_channel.get_busy()
+
+    def get_volume(self) -> int:
+        """Get the current volume level."""
+        with self._lock:
+            return self._volume
 
     def cleanup(self) -> None:
-        """
-        Clean up audio resources.
-        
-        This should be called when shutting down the application.
-        """
-        try:
-            self.stop_all_sounds()
-            pygame.mixer.quit()
-            logger.info("Audio system cleaned up")
-        except Exception as e:
-            logger.error(f"Error during audio cleanup: {str(e)}")
+        """Clean up resources and stop all audio."""
+        with self._lock:
+            if self._mock_mode:
+                self._alarm_playing = False
+                self._white_noise_playing = False
+                logger.info("Mock mode: Audio resources cleaned up")
+                return
+                
+            try:
+                # Stop all playback
+                self.stop_alarm()
+                self.stop_white_noise()
+                
+                # Clear sound resources
+                self._sounds.clear()
+                
+                # Quit pygame mixer
+                pygame.mixer.quit()
+                logger.info("Audio resources cleaned up")
+            except Exception as e:
+                logger.error(f"Error during audio cleanup: {str(e)}")

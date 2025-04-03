@@ -39,7 +39,7 @@ export const AlarmList: FC<AlarmListProps> = ({
     const toggleAlarmActive = async (alarm: Alarm) => {
         const updatedAlarm = { ...alarm, active: !alarm.active };
         try {
-            const response = await fetch("/set-alarm", {
+            const response = await fetch("/api/v1/set-alarm", {
                 method: "PUT",
                 body: JSON.stringify(updatedAlarm),
                 headers: { "Content-Type": "application/json" }
@@ -64,7 +64,7 @@ export const AlarmList: FC<AlarmListProps> = ({
         }
 
         try {
-            const response = await fetch("/alarms", {
+            const response = await fetch("/api/v1/alarms", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(alarmIds),

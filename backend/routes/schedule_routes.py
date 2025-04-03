@@ -17,7 +17,9 @@ async def get_schedule(
 ):
     """Gets the current schedule settings."""
     try:
-        return settings_manager.get_schedule()
+        # Return the schedule in the format expected by the frontend: { schedule: "a" | "b" | "off" }
+        schedule = settings_manager.get_schedule()
+        return {"schedule": schedule}
     except Exception as e:
         logger.error(f"Error fetching schedule: {str(e)}")
         raise AlarmBlockError("Failed to fetch schedule")
@@ -29,11 +31,12 @@ async def set_schedule(
 ):
     """Updates the schedule settings."""
     try:
-        if not schedule:
-            raise ValidationError("No schedule data provided")
-        settings_manager.set_schedule(schedule)
+        if "schedule" not in schedule:
+            raise ValidationError("Missing schedule data")
+        
+        settings_manager.set_schedule(schedule["schedule"])
         logger.info("Schedule updated successfully")
-        return {"message": "Schedule updated successfully"}
+        return {"message": "Schedule updated successfully", "schedule": schedule["schedule"]}
     except ValidationError as e:
         logger.error(f"Validation error: {str(e)}")
         raise
