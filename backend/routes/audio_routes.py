@@ -45,14 +45,15 @@ async def play_alarm(
         dict: Message indicating the alarm is playing
     """
     try:
+        # Always use audio_manager for playing alarms
+        audio_manager.play_alarm()
+        
         if not USE_PI_HARDWARE:
-            audio_manager.play_alarm()
+            logger.info("Alarm playing (development mode)")
             return {"message": "Alarm playing (development mode)"}
-        if pi_handler is None:
-            return {"message": "Hardware interface not available"}
-        pi_handler.play_alarm()
-        logger.info("Alarm playing")
-        return {"message": "Alarm playing"}
+        else:
+            logger.info("Alarm playing")
+            return {"message": "Alarm playing"}
     except Exception as e:
         logger.error(f"Error playing alarm: {str(e)}")
         raise AlarmBlockError("Failed to play alarm")
@@ -80,14 +81,15 @@ async def stop_alarm(
         dict: Message indicating the alarm is stopped
     """
     try:
+        # Always use audio_manager for stopping alarms
+        audio_manager.stop_alarm()
+        
         if not USE_PI_HARDWARE:
-            audio_manager.stop_alarm()
+            logger.info("Alarm stopped (development mode)")
             return {"message": "Alarm stopped (development mode)"}
-        if pi_handler is None:
-            return {"message": "Hardware interface not available"}
-        pi_handler.stop_alarm()
-        logger.info("Alarm stopped")
-        return {"message": "Alarm stopped"}
+        else:
+            logger.info("Alarm stopped")
+            return {"message": "Alarm stopped"}
     except Exception as e:
         logger.error(f"Error stopping alarm: {str(e)}")
         raise AlarmBlockError("Failed to stop alarm")
@@ -118,29 +120,29 @@ async def white_noise(
         dict: Message indicating the white noise status
     """
     try:
-        if not USE_PI_HARDWARE:
-            if action.action == "play":
-                audio_manager.play_white_noise()
+        # Validate action first
+        if action.action not in ["play", "stop"]:
+            raise ValidationError(f"Invalid action: {action.action}")
+            
+        # Always use audio_manager for white noise
+        if action.action == "play":
+            audio_manager.play_white_noise()
+            
+            if not USE_PI_HARDWARE:
+                logger.info("White noise started (development mode)")
                 return {"message": "White noise started (development mode)"}
-            elif action.action == "stop":
-                audio_manager.stop_white_noise()
+            else:
+                logger.info("White noise started")
+                return {"message": "White noise started"}
+        else:  # action.action == "stop"
+            audio_manager.stop_white_noise()
+            
+            if not USE_PI_HARDWARE:
+                logger.info("White noise stopped (development mode)")
                 return {"message": "White noise stopped (development mode)"}
             else:
-                raise ValidationError(f"Invalid action: {action.action}")
-        
-        if pi_handler is None:
-            return {"message": "Hardware interface not available"}
-        
-        if action.action == "play":
-            pi_handler.play_white_noise()
-            logger.info("White noise started")
-            return {"message": "White noise started"}
-        elif action.action == "stop":
-            pi_handler.stop_white_noise()
-            logger.info("White noise stopped")
-            return {"message": "White noise stopped"}
-        else:
-            raise ValidationError(f"Invalid action: {action.action}")
+                logger.info("White noise stopped")
+                return {"message": "White noise stopped"}
     except Exception as e:
         logger.error(f"Error controlling white noise: {str(e)}")
         raise HardwareError("Failed to control white noise")
@@ -175,16 +177,15 @@ async def adjust_volume(
         if not 0 <= volume <= 100:
             raise ValidationError("Volume must be between 0 and 100")
         
+        # Always use audio_manager for volume control
+        audio_manager.set_volume(volume)
+        
         if not USE_PI_HARDWARE:
-            audio_manager.set_volume(volume)
+            logger.info(f"Volume set to {volume} (development mode)")
             return {"message": f"Volume set to {volume} (development mode)"}
-        
-        if pi_handler is None:
-            return {"message": "Hardware interface not available"}
-        
-        pi_handler.set_volume(volume)
-        logger.info(f"Volume set to {volume}")
-        return {"message": f"Volume set to {volume}"}
+        else:
+            logger.info(f"Volume set to {volume}")
+            return {"message": f"Volume set to {volume}"}
     except Exception as e:
         logger.error(f"Error adjusting volume: {str(e)}")
         raise HardwareError("Failed to adjust volume")
