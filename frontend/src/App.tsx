@@ -44,7 +44,8 @@ const App = () => {
         isPlaying,
         setIsPlaying,
         isWhiteNoiseActive,
-        setIsWhiteNoiseActive
+        setIsWhiteNoiseActive,
+        isLoading: audioLoading
     } = useAudio();
 
     return (
@@ -80,12 +81,14 @@ const App = () => {
                         />
                     )}
 
-                    <AudioControls
-                        isPlaying={isPlaying}
-                        setIsPlaying={setIsPlaying}
-                        isWhiteNoiseActive={isWhiteNoiseActive}
-                        setIsWhiteNoiseActive={setIsWhiteNoiseActive}
-                    />
+                    {!audioLoading && (
+                        <AudioControls
+                            isPlaying={isPlaying}
+                            setIsPlaying={setIsPlaying}
+                            isWhiteNoiseActive={isWhiteNoiseActive}
+                            setIsWhiteNoiseActive={setIsWhiteNoiseActive}
+                        />
+                    )}
                 </div>
                 <ToastContainer position="bottom-right" theme="dark" />
             </div>

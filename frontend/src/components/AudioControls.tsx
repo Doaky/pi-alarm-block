@@ -1,5 +1,6 @@
 import { FC } from 'react';
 import { toast } from 'react-toastify';
+import { playAlarm, stopAlarm, playWhiteNoise, stopWhiteNoise } from '../services/api';
 
 interface AudioControlsProps {
     isPlaying: boolean;
@@ -16,8 +17,7 @@ export const AudioControls: FC<AudioControlsProps> = ({
 }) => {
     const handlePlayAlarm = async () => {
         try {
-            const response = await fetch("/api/v1/play-alarm", { method: "POST" });
-            if (!response.ok) throw new Error("Failed to play alarm");
+            await playAlarm();
             setIsPlaying(true);
         } catch (err) {
             toast.error("Failed to play alarm");
@@ -27,8 +27,7 @@ export const AudioControls: FC<AudioControlsProps> = ({
 
     const handleStopAlarm = async () => {
         try {
-            const response = await fetch("/api/v1/stop-alarm", { method: "POST" });
-            if (!response.ok) throw new Error("Failed to stop alarm");
+            await stopAlarm();
             setIsPlaying(false);
         } catch (err) {
             toast.error("Failed to stop alarm");
@@ -38,12 +37,7 @@ export const AudioControls: FC<AudioControlsProps> = ({
 
     const handlePlayWhiteNoise = async () => {
         try {
-            const response = await fetch("/api/v1/white-noise", { 
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "play" })
-            });
-            if (!response.ok) throw new Error("Failed to play white noise");
+            await playWhiteNoise();
             setIsWhiteNoiseActive(true);
         } catch (err) {
             toast.error("Failed to play white noise");
@@ -53,12 +47,7 @@ export const AudioControls: FC<AudioControlsProps> = ({
 
     const handleStopWhiteNoise = async () => {
         try {
-            const response = await fetch("/api/v1/white-noise", { 
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "stop" })
-            });
-            if (!response.ok) throw new Error("Failed to stop white noise");
+            await stopWhiteNoise();
             setIsWhiteNoiseActive(false);
         } catch (err) {
             toast.error("Failed to stop white noise");

@@ -2,12 +2,11 @@
 
 import logging
 from fastapi import APIRouter, Depends
-from typing import Optional, Dict
 from pydantic import BaseModel, Field
 
-from backend.utils.error_handler import HardwareError, ValidationError, AlarmBlockError
-from backend.dependencies import get_pi_handler, get_audio_manager
-from backend.dependencies import PiHandler, AudioManager
+from backend.utils.error_handler import ValidationError, AlarmBlockError
+from backend.dependencies import get_audio_manager
+from backend.dependencies import AudioManager
 from backend.config import USE_PI_HARDWARE
 
 logger = logging.getLogger(__name__)
@@ -32,7 +31,6 @@ class VolumeControl(BaseModel):
     }
 )
 async def play_alarm(
-    pi_handler: Optional[PiHandler] = Depends(get_pi_handler),
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
@@ -68,7 +66,6 @@ async def play_alarm(
     }
 )
 async def stop_alarm(
-    pi_handler: Optional[PiHandler] = Depends(get_pi_handler),
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
@@ -106,7 +103,6 @@ async def stop_alarm(
 )
 async def white_noise(
     action: WhiteNoiseAction,
-    pi_handler: Optional[PiHandler] = Depends(get_pi_handler),
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
@@ -126,7 +122,11 @@ async def white_noise(
             
         # Always use audio_manager for white noise
         if action.action == "play":
-            audio_manager.play_white_noise()
+            success = audio_manager.play_white_noise()
+            
+            if not success:
+                logger.error("Failed to play white noise")
+                raise AlarmBlockError("Failed to play white noise")
             
             if not USE_PI_HARDWARE:
                 logger.info("White noise started (development mode)")
@@ -135,7 +135,11 @@ async def white_noise(
                 logger.info("White noise started")
                 return {"message": "White noise started"}
         else:  # action.action == "stop"
-            audio_manager.stop_white_noise()
+            success = audio_manager.stop_white_noise()
+            
+            if not success:
+                logger.error("Failed to stop white noise")
+                raise AlarmBlockError("Failed to stop white noise")
             
             if not USE_PI_HARDWARE:
                 logger.info("White noise stopped (development mode)")
@@ -145,7 +149,7 @@ async def white_noise(
                 return {"message": "White noise stopped"}
     except Exception as e:
         logger.error(f"Error controlling white noise: {str(e)}")
-        raise HardwareError("Failed to control white noise")
+        raise AlarmBlockError("Failed to control white noise")
 
 @router.post("/volume", 
     summary="Adjust volume",
@@ -159,7 +163,6 @@ async def white_noise(
 )
 async def adjust_volume(
     volume_data: VolumeControl,
-    pi_handler: Optional[PiHandler] = Depends(get_pi_handler),
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
@@ -188,4 +191,38 @@ async def adjust_volume(
             return {"message": f"Volume set to {volume}"}
     except Exception as e:
         logger.error(f"Error adjusting volume: {str(e)}")
-        raise HardwareError("Failed to adjust volume")
+        raise AlarmBlockError("Failed to adjust volume")
+
+@router.get("/white-noise/status", 
+    summary="Get white noise status",
+    description="Checks if white noise is currently playing",
+    response_description="Status of white noise playback",
+    responses={
+        200: {"description": "Successfully retrieved white noise status"},
+        500: {"description": "Failed to get white noise status"}
+    }
+)
+async def get_white_noise_status(
+    audio_manager: AudioManager = Depends(get_audio_manager)
+):
+    """
+    Get the current status of white noise playback.
+    
+    - In hardware mode: Uses the Raspberry Pi hardware
+    - In development mode: Uses the audio manager
+    
+    Returns:
+        dict: Status indicating if white noise is playing
+    """
+    try:
+        is_playing = audio_manager.is_white_noise_playing()
+        
+        if not USE_PI_HARDWARE:
+            logger.info(f"White noise status checked: {is_playing} (development mode)")
+            return {"is_playing": is_playing, "mode": "development"}
+        else:
+            logger.info(f"White noise status checked: {is_playing}")
+            return {"is_playing": is_playing, "mode": "hardware"}
+    except Exception as e:
+        logger.error(f"Error checking white noise status: {str(e)}")
+        raise AlarmBlockError("Failed to get white noise status")

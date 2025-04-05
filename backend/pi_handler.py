@@ -90,12 +90,21 @@ class PiHandler:
             current_b = GPIO.input(self.GPIO_B)
             
             if current_a != self.last_encoder_state:
-                # Clockwise rotation
+                # Get current volume
+                current_volume = self.audio_manager.get_volume()
+                
+                # Clockwise rotation - increase volume
                 if current_b != current_a:
-                    self.audio_manager.adjust_volume(self.VOLUME_STEP)
-                # Counter-clockwise rotation
+                    # Calculate new volume (increase by 5%)
+                    new_volume = min(100, current_volume + int(self.VOLUME_STEP * 100))
+                    self.audio_manager.adjust_volume(new_volume)
+                    logger.info(f"Volume increased to {new_volume}%")
+                # Counter-clockwise rotation - decrease volume
                 else:
-                    self.audio_manager.adjust_volume(-self.VOLUME_STEP)
+                    # Calculate new volume (decrease by 5%)
+                    new_volume = max(0, current_volume - int(self.VOLUME_STEP * 100))
+                    self.audio_manager.adjust_volume(new_volume)
+                    logger.info(f"Volume decreased to {new_volume}%")
             
             self.last_encoder_state = current_a
             

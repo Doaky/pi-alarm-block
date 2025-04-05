@@ -92,3 +92,11 @@ export const adjustVolume = async (volume: number): Promise<void> => {
         throw new Error('Failed to adjust volume');
     }
 };
+
+export const getWhiteNoiseStatus = async (): Promise<{ is_playing: boolean, mode: string }> => {
+    const response = await fetch(`${API_URL}/api/v1/white-noise/status`);
+    if (!response.ok) {
+        throw new Error('Failed to get white noise status');
+    }
+    return response.json();
+};
