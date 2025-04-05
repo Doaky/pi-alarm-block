@@ -88,4 +88,10 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    # Only use reload in development mode
+    if DEV_MODE:
+        logger.info("Starting server in development mode with auto-reload enabled")
+        uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    else:
+        logger.info("Starting server in production mode")
+        uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=False)
