@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 from backend.config import config, IS_RASPBERRY_PI, USE_PI_HARDWARE, DEV_MODE
 
 # Import dependencies
-from backend.dependencies import get_settings_manager, get_audio_manager, get_alarm_manager, get_hardware_manager
+from backend.dependencies import get_settings_manager, get_audio_manager, get_alarm_manager, get_hardware_manager, _instances
 from backend.settings_manager import SettingsManager
 from backend.audio_manager import AudioManager
 from backend.alarm_manager import AlarmManager
@@ -85,9 +85,17 @@ def initialize_managers():
     """Initialize all managers during startup to ensure they're ready before UI loads."""
     logger.info("Initializing all managers at startup...")
     
-    # Get instances of all managers - this will initialize them
+    # Get instances of all managers in the correct order to resolve dependencies
+    # First initialize settings_manager since others depend on it
     settings_manager = get_settings_manager()
-    audio_manager = get_audio_manager()
+    
+    # Now manually pass the actual instance to audio_manager
+    if 'audio_manager' not in _instances:
+        from backend.audio_manager import AudioManager
+        _instances['audio_manager'] = AudioManager(settings_manager=settings_manager)
+    audio_manager = _instances['audio_manager']
+    
+    # Continue with other managers
     hardware_manager = get_hardware_manager()
     alarm_manager = get_alarm_manager()
     
