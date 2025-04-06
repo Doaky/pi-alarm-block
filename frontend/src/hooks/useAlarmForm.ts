@@ -5,7 +5,7 @@ import { setAlarm } from '../services/api';
 import { Alarm } from '../types/index';
 
 export const useAlarmForm = (onAlarmSet: (alarm: Alarm) => void) => {
-    const [selectedTime, setSelectedTime] = useState<dayjs.Dayjs | null>(dayjs());
+    const [selectedTime, setSelectedTime] = useState<dayjs.Dayjs | null>(dayjs().hour(7).minute(30).second(0));
     const [days, setDays] = useState<number[]>([]);
     const [isPrimary, setIsPrimary] = useState(true);
 

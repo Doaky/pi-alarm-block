@@ -181,7 +181,7 @@ async def adjust_volume(
             raise ValidationError("Volume must be between 0 and 100")
         
         # Always use audio_manager for volume control
-        audio_manager.set_volume(volume)
+        audio_manager.adjust_volume(volume)
         
         if not USE_PI_HARDWARE:
             logger.info(f"Volume set to {volume} (development mode)")

@@ -40,7 +40,8 @@ class AlarmManager:
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Initialize scheduler with timezone
-        self.scheduler = BackgroundScheduler({'apscheduler.timezone': 'EST'})
+        # Using America/New_York instead of EST to properly handle DST
+        self.scheduler = BackgroundScheduler({'apscheduler.timezone': 'America/New_York'})
         self.scheduler.add_listener(
             self._handle_job_event,
             EVENT_JOB_ERROR | EVENT_JOB_EXECUTED
@@ -128,22 +129,15 @@ class AlarmManager:
                     content = f.read()
                     data = json.loads(content)
                 
-                # Check if data is a list (array format) or dict (object format)
-                if isinstance(data, list):
-                    self.alarms = {}
-                    for alarm_data in data:
-                        alarm = Alarm(**alarm_data)
-                        self.alarms[alarm.id] = alarm
-                    logger.info(f"Loaded {len(self.alarms)} alarms from array format")
-                else:
-                    self.alarms = {
-                        alarm_id: Alarm(**alarm_data)
-                        for alarm_id, alarm_data in data.items()
-                    }
-                    logger.info(f"Loaded {len(self.alarms)} alarms from dictionary format")
-                        
-                # logger.info(f"Successfully loaded {len(self.alarms)} alarms from {self.file_path}")            else:
+                # Process alarms in list format
+                self.alarms = {}
+                for alarm_data in data:
+                    alarm = Alarm(**alarm_data)
+                    self.alarms[alarm.id] = alarm
+                logger.info(f"Loaded {len(self.alarms)} alarms")
+            else:
                 logger.warning(f"No alarms file found at {self.file_path}, starting with empty alarms")
+                self.alarms = {}
         except Exception as e:
             logger.error(f"Error loading alarms: {e}")
             self.alarms = {}

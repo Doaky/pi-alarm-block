@@ -99,11 +99,19 @@ def initialize_managers():
         "alarm_manager": alarm_manager
     }
 
-# Register startup event to ensure managers are initialized before any requests
-@app.on_event("startup")
-async def startup_event():
-    """Initialize all managers during FastAPI startup."""
+# Register lifespan context manager to handle startup/shutdown events
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application startup and shutdown events."""
+    # Initialize all managers during FastAPI startup
     initialize_managers()
+    yield
+    # Cleanup could be added here for shutdown events
+
+# Apply the lifespan context manager to the app
+app.router.lifespan_context = lifespan
 
 # Serve static files
 static_dir = Path(__file__).parent.parent / "frontend" / "dist"

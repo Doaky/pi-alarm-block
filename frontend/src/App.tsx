@@ -45,7 +45,9 @@ const App = () => {
         setIsPlaying,
         isWhiteNoiseActive,
         setIsWhiteNoiseActive,
-        isLoading: audioLoading
+        isLoading: audioLoading,
+        volume,
+        handleVolumeChange
     } = useAudio();
 
     return (
@@ -87,10 +89,17 @@ const App = () => {
                             setIsPlaying={setIsPlaying}
                             isWhiteNoiseActive={isWhiteNoiseActive}
                             setIsWhiteNoiseActive={setIsWhiteNoiseActive}
+                            volume={volume}
+                            handleVolumeChange={handleVolumeChange}
                         />
                     )}
                 </div>
-                <ToastContainer position="bottom-right" theme="dark" />
+                <ToastContainer 
+                    position="top-center" 
+                    theme="dark" 
+                    limit={3} 
+                    newestOnTop 
+                />
             </div>
         </LocalizationProvider>
     );

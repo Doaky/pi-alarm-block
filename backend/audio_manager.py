@@ -1,4 +1,3 @@
-import logging
 import os
 import random
 import threading
@@ -10,8 +9,11 @@ from pydantic import BaseModel, Field, validator
 # Import config to check for development mode
 from backend.config import DEV_MODE
 
-# Configure logging
-logger = logging.getLogger(__name__)
+# Import centralized logging utility
+from backend.utils.logging import setup_logging
+
+# Configure logger with colored output
+logger = setup_logging(level="INFO", module_name=__name__)
 
 class AudioConfig(BaseModel):
     """Pydantic model for audio configuration validation."""
@@ -22,19 +24,19 @@ class AudioConfig(BaseModel):
         description="Volume level (0-100)"
     )
     alarm_sound: str = Field(
-        "alarm.mp3",
+        "default_alarm.ogg",
         description="Default filename of the alarm sound (used as fallback)"
     )
     white_noise_sound: str = Field(
-        "white_noise.mp3",
+        "white_noise.ogg",
         description="Filename of the white noise sound"
     )
     sounds_dir: str = Field(
-        "backend/sounds",
+        "backend/data/sounds",
         description="Directory containing sound files"
     )
     alarm_sounds_dir: str = Field(
-        "alarm_sounds",
+        "alarms",
         description="Subdirectory containing alarm sound files"
     )
 
@@ -118,39 +120,23 @@ class AudioManager:
         try:
             # Load alarm sounds from the alarm_sounds directory
             alarm_sounds_path = os.path.join(self._config.sounds_dir, self._config.alarm_sounds_dir)
-            if os.path.exists(alarm_sounds_path) and os.path.isdir(alarm_sounds_path):
-                # Get all valid sound files in the alarm_sounds directory
-                for filename in os.listdir(alarm_sounds_path):
-                    # Skip files with .Identifier extension (these are Windows metadata files)
-                    if filename.endswith('.mp3') and not filename.endswith('.Identifier'):
-                        full_path = os.path.join(alarm_sounds_path, filename)
-                        sound_key = f"alarm_{filename}"
-                        self._sounds[sound_key] = pygame.mixer.Sound(full_path)
-                        self._alarm_sounds.append(sound_key)
-                        logger.info(f"Loaded alarm sound: {full_path}")
-                
-                if not self._alarm_sounds:
-                    logger.warning(f"No alarm sounds found in {alarm_sounds_path}, using default")
-                    # Load default alarm sound as fallback
-                    alarm_path = os.path.join(self._config.sounds_dir, self._config.alarm_sound)
-                    if os.path.exists(alarm_path):
-                        self._sounds['alarm'] = pygame.mixer.Sound(alarm_path)
-                        self._alarm_sounds.append('alarm')
-                        logger.info(f"Loaded default alarm sound: {alarm_path}")
-                    else:
-                        logger.warning(f"Default alarm sound file not found: {alarm_path}")
-                else:
-                    logger.info(f"Loaded {len(self._alarm_sounds)} alarm sounds")
-            else:
-                logger.warning(f"Alarm sounds directory not found: {alarm_sounds_path}, using default")
+            # Get all valid sound files in the alarm_sounds directory
+            for filename in os.listdir(alarm_sounds_path):
+                # Skip files with .Identifier extension (these are Windows metadata files)
+                if filename.endswith('.ogg') and not filename.endswith('.Identifier'):
+                    full_path = os.path.join(alarm_sounds_path, filename)
+                    sound_key = f"alarm_{filename}"
+                    self._sounds[sound_key] = pygame.mixer.Sound(full_path)
+                    self._alarm_sounds.append(sound_key)
+                    logger.info(f"Loaded alarm sound: {full_path}")
+            
+            # Check if we found any alarm sounds
+            if not self._alarm_sounds:
+                logger.warning(f"No alarm sounds found in {alarm_sounds_path}, using default")
                 # Load default alarm sound as fallback
-                alarm_path = os.path.join(self._config.sounds_dir, self._config.alarm_sound)
-                if os.path.exists(alarm_path):
-                    self._sounds['alarm'] = pygame.mixer.Sound(alarm_path)
-                    self._alarm_sounds.append('alarm')
-                    logger.info(f"Loaded default alarm sound: {alarm_path}")
-                else:
-                    logger.warning(f"Default alarm sound file not found: {alarm_path}")
+                self._load_default_alarm_sound()
+            else:
+                logger.info(f"Loaded {len(self._alarm_sounds)} alarm sounds")
             
             # Load white noise sound
             white_noise_path = os.path.join(self._config.sounds_dir, self._config.white_noise_sound)
@@ -162,6 +148,20 @@ class AudioManager:
         except Exception as e:
             logger.error(f"Failed to load sounds: {str(e)}")
             raise RuntimeError(f"Failed to load sounds: {str(e)}")
+        
+        
+    def _load_default_alarm_sound(self) -> None:
+        """
+        Load the default alarm sound as fallback.
+        """
+        # Load default alarm sound from the sounds directory
+        alarm_path = os.path.join(self._config.sounds_dir, self._config.alarm_sound)
+        if os.path.exists(alarm_path):
+            self._sounds['alarm'] = pygame.mixer.Sound(alarm_path)
+            self._alarm_sounds.append('alarm')
+            logger.info(f"Loaded default alarm sound: {alarm_path}")
+        else:
+            logger.warning(f"Default alarm sound file not found: {alarm_path}")
 
     def _set_volume(self, volume: int) -> None:
         """

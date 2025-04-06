@@ -25,14 +25,14 @@ HardwareManager = Any
 try:
     if USE_PI_HARDWARE:
         # Attempt to import real HardwareManager
-        from backend.hardware_manager import HardwareManager
+        from hardware.hardware_manager import HardwareManager
         logger.info("Using real hardware implementation")
     else:
         logger.info("Hardware disabled by configuration")
-        from backend.mock_hardware_manager import MockHardwareManager as HardwareManager
+        from hardware.mock_hardware_manager import MockHardwareManager as HardwareManager
 except ImportError:
     logger.info("Using mock hardware implementation (development mode)")
-    from backend.mock_hardware_manager import MockHardwareManager as HardwareManager
+    from hardware.mock_hardware_manager import MockHardwareManager as HardwareManager
 
 
 def get_settings_manager() -> SettingsManager:

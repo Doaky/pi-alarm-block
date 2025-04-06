@@ -1,0 +1,37 @@
+I. General Code Structure and Organization:
+
+Clear Directory Structure: Organize code into logical directories (e.g., frontend, backend, hardware).
+Modularity: Break down functionality into small, reusable modules and functions.
+Naming Conventions: Use consistent and descriptive naming for variables, functions, and classes (e.g., snake_case for Python, camelCase for JavaScript/TypeScript).
+Separation of Concerns: Keep UI, business logic, and hardware interaction separate.
+
+II. Code Style and Best Practices:
+Type Hints: Use type hints in Python and TypeScript for improved readability and maintainability.
+Linting: Use a linter (e.g., flake8 for Python, eslint for JavaScript/TypeScript) to enforce code style and catch potential errors.
+Conciseness: Aim for concise and efficient code, avoiding unnecessary complexity.
+Code Reviews: (Optional, but recommended) If collaborating, conduct code reviews to ensure code quality and consistency.
+
+III. Logging:
+Descriptive Logs: Use informative log messages to track program execution and debug issues.
+Log Levels: Use appropriate log levels (e.g., DEBUG, INFO, WARNING, ERROR) to categorize log messages.
+Centralized Logging: Configure a central logging system to collect and manage logs.
+Error Handling: Log exceptions and errors with detailed information (e.g., traceback).
+
+IV. Development/Production Mode:
+Configuration: Use a configuration file (.env) or environment variables to manage settings for different environments.
+Conditional Logic: Use conditional statements to execute different code paths based on the environment (e.g., hardware initialization).
+Mocking: Use mock objects or classes to simulate hardware interactions in development mode.
+Feature Flags: Use feature flags to enable or disable features in different environments.
+
+V. Raspberry Pi Specific Considerations:
+Efficiency: Optimize code for the limited resources of the Raspberry Pi 0 (e.g., memory usage, CPU usage).
+Hardware Access: Use appropriate libraries for accessing hardware components (e.g., GPIO).
+Resource Management: Properly manage hardware resources (e.g., closing GPIO pins) to avoid conflicts.
+
+VI. Dependencies:
+Dependency Management: Use a dependency management tool (e.g., pip for Python, npm or yarn for JavaScript/TypeScript) to manage project dependencies.
+Minimal Dependencies: Keep the number of dependencies to a minimum to reduce the project's footprint.
+
+VII. Other:
+Concise Change Logs: When making changes, provide short, descriptive commit messages.
+WSL Setup: Remember that this project is being developed in a WSL environment, so use the correct folder layout.
