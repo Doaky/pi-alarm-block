@@ -43,11 +43,11 @@ def get_settings_manager() -> SettingsManager:
     return _instances['settings_manager']
 
 
-def get_audio_manager() -> AudioManager:
+def get_audio_manager(settings_manager: SettingsManager = Depends(get_settings_manager)) -> AudioManager:
     """Get or create AudioManager instance."""
     if 'audio_manager' not in _instances:
         logger.debug("Creating AudioManager instance")
-        _instances['audio_manager'] = AudioManager()
+        _instances['audio_manager'] = AudioManager(settings_manager=settings_manager)
     return _instances['audio_manager']
 
 

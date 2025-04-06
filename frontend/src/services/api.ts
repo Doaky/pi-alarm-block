@@ -100,3 +100,11 @@ export const getWhiteNoiseStatus = async (): Promise<{ is_playing: boolean, mode
     }
     return response.json();
 };
+
+export const getVolume = async (): Promise<{ volume: number, mode: string }> => {
+    const response = await fetch(`${API_URL}/api/v1/volume`);
+    if (!response.ok) {
+        throw new Error('Failed to get volume level');
+    }
+    return response.json();
+};

@@ -42,8 +42,9 @@ class HardwareManager:
     def _setup_gpio(self) -> None:
         """Set up GPIO pins with proper error handling."""
         try:
-            GPIO.cleanup()
+            # Set GPIO mode without cleanup to avoid warnings
             GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)  # Suppress warnings
             
             # Setup input pins with pull-up resistors
             pins = [
@@ -60,24 +61,61 @@ class HardwareManager:
             # Initialize encoder state
             self.last_encoder_state = GPIO.input(self.GPIO_A)
             
-            # Bind event detection with debouncing
-            GPIO.add_event_detect(self.GPIO_A, GPIO.BOTH, 
-                                callback=self._on_rotary_rotated, 
-                                bouncetime=50)
-            GPIO.add_event_detect(self.BUTTON_PIN, GPIO.FALLING, 
-                                callback=self._on_rotary_button_pressed, 
-                                bouncetime=200)
-            GPIO.add_event_detect(self.SCHEDULE_PIN, GPIO.BOTH, 
-                                callback=self._toggle_primary_schedule, 
-                                bouncetime=200)
-            GPIO.add_event_detect(self.GLOBAL_PIN, GPIO.BOTH, 
-                                callback=self._toggle_global_status, 
-                                bouncetime=200)
+            # Bind event detection with debouncing - with proper error handling for each pin
+            try:
+                # First remove any existing event detection to avoid conflicts
+                try:
+                    GPIO.remove_event_detect(self.GPIO_A)
+                except:
+                    pass
+                GPIO.add_event_detect(self.GPIO_A, GPIO.BOTH, 
+                                    callback=self._on_rotary_rotated, 
+                                    bouncetime=50)
+                logger.debug(f"Added event detection for GPIO_A (pin {self.GPIO_A})")
+            except Exception as e:
+                logger.warning(f"Could not set up event detection for GPIO_A: {str(e)}")
+                
+            try:
+                try:
+                    GPIO.remove_event_detect(self.BUTTON_PIN)
+                except:
+                    pass
+                GPIO.add_event_detect(self.BUTTON_PIN, GPIO.FALLING, 
+                                    callback=self._on_rotary_button_pressed, 
+                                    bouncetime=200)
+                logger.debug(f"Added event detection for BUTTON_PIN (pin {self.BUTTON_PIN})")
+            except Exception as e:
+                logger.warning(f"Could not set up event detection for BUTTON_PIN: {str(e)}")
+                
+            try:
+                try:
+                    GPIO.remove_event_detect(self.SCHEDULE_PIN)
+                except:
+                    pass
+                GPIO.add_event_detect(self.SCHEDULE_PIN, GPIO.BOTH, 
+                                    callback=self._toggle_primary_schedule, 
+                                    bouncetime=200)
+                logger.debug(f"Added event detection for SCHEDULE_PIN (pin {self.SCHEDULE_PIN})")
+            except Exception as e:
+                logger.warning(f"Could not set up event detection for SCHEDULE_PIN: {str(e)}")
+                
+            try:
+                try:
+                    GPIO.remove_event_detect(self.GLOBAL_PIN)
+                except:
+                    pass
+                GPIO.add_event_detect(self.GLOBAL_PIN, GPIO.BOTH, 
+                                    callback=self._toggle_global_status, 
+                                    bouncetime=200)
+                logger.debug(f"Added event detection for GLOBAL_PIN (pin {self.GLOBAL_PIN})")
+            except Exception as e:
+                logger.warning(f"Could not set up event detection for GLOBAL_PIN: {str(e)}")
             
             logger.info("GPIO setup completed successfully")
         except Exception as e:
             logger.error(f"Failed to setup GPIO: {str(e)}")
-            raise
+            # Don't raise here to allow the program to continue even with partial GPIO functionality
+            # Instead, we'll log the error and continue
 
     def _on_rotary_rotated(self, channel: int) -> None:
         """Handle rotary encoder rotation for volume control.

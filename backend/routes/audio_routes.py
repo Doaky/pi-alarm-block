@@ -202,6 +202,7 @@ async def adjust_volume(
         500: {"description": "Failed to get white noise status"}
     }
 )
+
 async def get_white_noise_status(
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
@@ -226,3 +227,37 @@ async def get_white_noise_status(
     except Exception as e:
         logger.error(f"Error checking white noise status: {str(e)}")
         raise AlarmBlockError("Failed to get white noise status")
+
+@router.get("/volume", 
+    summary="Get current volume",
+    description="Retrieves the current system volume level",
+    response_description="Current volume level",
+    responses={
+        200: {"description": "Successfully retrieved volume level"},
+        500: {"description": "Failed to get volume level"}
+    }
+)
+async def get_volume(
+    audio_manager: AudioManager = Depends(get_audio_manager)
+):
+    """
+    Get the current volume level.
+    
+    - In hardware mode: Uses the Raspberry Pi hardware
+    - In development mode: Uses the audio manager
+    
+    Returns:
+        dict: Current volume level (0-100)
+    """
+    try:
+        volume = audio_manager.get_volume()
+        
+        if not USE_PI_HARDWARE:
+            logger.info(f"Volume level checked: {volume} (development mode)")
+            return {"volume": volume, "mode": "development"}
+        else:
+            logger.info(f"Volume level checked: {volume}")
+            return {"volume": volume, "mode": "hardware"}
+    except Exception as e:
+        logger.error(f"Error retrieving volume level: {str(e)}")
+        raise AlarmBlockError("Failed to get volume level")

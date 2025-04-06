@@ -1,7 +1,6 @@
 import json
 import logging
-from pathlib import Path
-from typing import Dict, Optional, Literal
+from typing import Dict, Literal
 from enum import Enum
 from pydantic import BaseModel, Field
 
@@ -20,11 +19,18 @@ class Settings(BaseModel):
         ScheduleType.A,
         description="Current schedule setting: 'a' (primary), 'b' (secondary), or 'off' (disabled)"
     )
+    volume: int = Field(
+        25,  # Default to 25%
+        ge=0,
+        le=100,
+        description="Current volume level (0-100)"
+    )
 
     class Config:
         json_schema_extra = {
             "example": {
-                "schedule": "a"
+                "schedule": "a",
+                "volume": 25
             }
         }
 
@@ -158,6 +164,36 @@ class SettingsManager:
         """
         return self._settings.schedule != ScheduleType.OFF
 
+    def get_volume(self) -> int:
+        """
+        Get current volume level.
+        
+        Returns:
+            int: Current volume level (0-100)
+        """
+        return self._settings.volume
+        
+    def set_volume(self, volume: int) -> None:
+        """
+        Set volume level.
+        
+        Args:
+            volume: Volume level (0-100)
+            
+        Raises:
+            ValueError: If the value is outside the valid range
+        """
+        try:
+            if not 0 <= volume <= 100:
+                raise ValueError("Volume must be between 0 and 100")
+                
+            self._settings.volume = volume
+            self._save_settings()
+            logger.info(f"Volume set to: {volume}%")
+        except Exception as e:
+            logger.error(f"Failed to set volume: {e}")
+            raise ValueError(f"Invalid volume level: {e}")
+            
     def reset_to_defaults(self) -> None:
         """Reset all settings to their default values."""
         try:
