@@ -13,8 +13,8 @@ from backend.settings_manager import SettingsManager
 
 logger = logging.getLogger(__name__)
 
-class PiHandler:
-    """Handles Raspberry Pi GPIO interactions and hardware controls."""
+class HardwareManager:
+    """Handles hardware interactions and controls for the alarm system."""
     
     # GPIO Pin Configuration
     GPIO_A = 26  # Rotary Encoder Pin A
@@ -25,7 +25,7 @@ class PiHandler:
     VOLUME_STEP = 0.05  # 5% volume adjustment step
 
     def __init__(self, settings_manager: SettingsManager, audio_manager: AudioManager):
-        """Initialize PiHandler with GPIO setup.
+        """Initialize HardwareManager with GPIO setup.
         
         Args:
             settings_manager: Manager for alarm and system settings
@@ -37,7 +37,7 @@ class PiHandler:
         
         # Initialize GPIO
         self._setup_gpio()
-        logger.info("PiHandler initialized successfully")
+        logger.info("HardwareManager initialized successfully")
 
     def _setup_gpio(self) -> None:
         """Set up GPIO pins with proper error handling."""

@@ -1,4 +1,4 @@
-"""Mock implementation of PiHandler for development environments."""
+"""Mock implementation of HardwareManager for development environments."""
 
 import logging
 import time
@@ -10,11 +10,11 @@ from backend.settings_manager import SettingsManager
 
 logger = logging.getLogger(__name__)
 
-class MockPiHandler:
-    """Mock implementation of PiHandler for development environments.
+class MockHardwareManager:
+    """Mock implementation of HardwareManager for development environments.
     
-    This class mimics the behavior of the PiHandler class but doesn't
-    require any Raspberry Pi hardware or GPIO libraries.
+    This class mimics the behavior of the HardwareManager class but doesn't
+    require any specific hardware or GPIO libraries.
     """
     
     # Mock GPIO Pin Configuration (same as real PiHandler for consistency)
@@ -26,7 +26,7 @@ class MockPiHandler:
     VOLUME_STEP = 0.05  # 5% volume adjustment step
 
     def __init__(self, settings_manager: SettingsManager, audio_manager: AudioManager):
-        """Initialize MockPiHandler.
+        """Initialize MockHardwareManager.
         
         Args:
             settings_manager: Manager for alarm and system settings
@@ -37,7 +37,7 @@ class MockPiHandler:
         self.last_encoder_state = True  # Mock initial state
         
         # Log initialization
-        logger.info("MockPiHandler initialized (development mode)")
+        logger.info("MockHardwareManager initialized (development mode)")
 
     def _setup_gpio(self) -> None:
         """Mock GPIO setup."""
@@ -122,7 +122,7 @@ class MockPiHandler:
         current = self.settings_manager.get_is_global_on()
         logger.info(f"Simulated global toggle: {'On' if current else 'Off'}")
         
-    # Methods to match the PiHandler interface for audio routes
+    # Methods to match the HardwareManager interface for audio routes
     
     def play_alarm(self) -> None:
         """Simulate playing an alarm."""

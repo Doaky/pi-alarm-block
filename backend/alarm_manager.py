@@ -12,7 +12,7 @@ from backend.audio_manager import AudioManager
 from backend.config import USE_PI_HARDWARE
 
 if TYPE_CHECKING:
-    from backend.dependencies import PiHandler
+    from backend.dependencies import HardwareManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -24,17 +24,17 @@ class AlarmManager:
         self,
         settings_manager: SettingsManager,
         audio_manager: AudioManager,
-        pi_handler: Optional['PiHandler'] = None,
+        hardware_manager: Optional['HardwareManager'] = None,
     ):
         """Initialize AlarmManager with settings, audio, and hardware interface."""
         self.settings_manager = settings_manager
         self.audio_manager = audio_manager
-        self.pi_handler = pi_handler
+        self.hardware_manager = hardware_manager
         
-        # Always use the project's data directory for development
-        # This ensures we're always reading from and writing to the same file
-        self.file_path = Path(__file__).parent / "data" / "alarms.json"
-        logger.info(f"Using project data directory for alarms: {self.file_path}")
+        # Use the project data directory directly
+        from backend.config import PROJECT_DATA_DIR
+        self.file_path = PROJECT_DATA_DIR / "alarms.json"
+        logger.info(f"Using data directory for alarms: {self.file_path}")
         
         # Ensure parent directory exists
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,40 +124,25 @@ class AlarmManager:
         try:
             if self.file_path.exists():
                 logger.info(f"Loading alarms from {self.file_path}")
-                file_size = self.file_path.stat().st_size
-                logger.info(f"Alarms file size: {file_size} bytes")
-                
                 with open(self.file_path, 'r') as f:
-                    file_content = f.read()
-                    logger.info(f"File content: {file_content[:100]}...")  # Log first 100 chars
-                    
-                    # Reset file pointer and load JSON
-                    f.seek(0)
-                    data = json.load(f)
-                    
-                    # Handle array format (current format in the file)
-                    if isinstance(data, list):
-                        logger.info(f"Detected array format with {len(data)} alarms")
-                        self.alarms = {}
-                        for alarm_data in data:
-                            try:
-                                alarm = Alarm(**alarm_data)
-                                self.alarms[alarm.id] = alarm
-                                logger.info(f"Loaded alarm: {alarm.id} - {alarm.hour:02d}:{alarm.minute:02d}")
-                            except Exception as e:
-                                logger.error(f"Error loading individual alarm: {e}")
-                        logger.info(f"Loaded {len(self.alarms)} alarms from array format")
-                    # Handle dictionary format (for backward compatibility)
-                    else:
-                        logger.info(f"Detected dictionary format with {len(data)} alarms")
-                        self.alarms = {
-                            alarm_id: Alarm(**alarm_data)
-                            for alarm_id, alarm_data in data.items()
-                        }
-                        logger.info(f"Loaded {len(self.alarms)} alarms from dictionary format")
+                    content = f.read()
+                    data = json.loads(content)
+                
+                # Check if data is a list (array format) or dict (object format)
+                if isinstance(data, list):
+                    self.alarms = {}
+                    for alarm_data in data:
+                        alarm = Alarm(**alarm_data)
+                        self.alarms[alarm.id] = alarm
+                    logger.info(f"Loaded {len(self.alarms)} alarms from array format")
+                else:
+                    self.alarms = {
+                        alarm_id: Alarm(**alarm_data)
+                        for alarm_id, alarm_data in data.items()
+                    }
+                    logger.info(f"Loaded {len(self.alarms)} alarms from dictionary format")
                         
-                logger.info(f"Successfully loaded {len(self.alarms)} alarms from {self.file_path}")
-            else:
+                # logger.info(f"Successfully loaded {len(self.alarms)} alarms from {self.file_path}")            else:
                 logger.warning(f"No alarms file found at {self.file_path}, starting with empty alarms")
         except Exception as e:
             logger.error(f"Error loading alarms: {e}")
@@ -233,9 +218,9 @@ class AlarmManager:
                 return
 
             logger.info(f"Triggering alarm: {alarm.hour:02d}:{alarm.minute:02d} - Primary: {alarm.is_primary_schedule}")
-            
-            if self.pi_handler:
-                self.pi_handler.play_alarm()
+        
+            if self.hardware_manager:
+                self.hardware_manager.play_alarm()
             else:
                 logger.warning("No hardware interface available for alarm playback")
 

@@ -1,8 +1,7 @@
 """Dependency injection container for the Alarm Block application."""
 
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 from fastapi import Depends
-from functools import lru_cache
 import logging
 import os
 import sys
@@ -16,56 +15,64 @@ from backend.config import config, USE_PI_HARDWARE, DEV_MODE
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Define PiHandler type for type hints
-PiHandler = Any
+# Singleton instances
+_instances: Dict[str, Any] = {}
 
-# Import PiHandler or MockPiHandler based on configuration
-if USE_PI_HARDWARE:
-    try:
-        # Attempt to import real PiHandler
-        from backend.pi_handler import PiHandler
-        logger.info("Using real Raspberry Pi hardware")
-    except ImportError as e:
-        logger.warning(f"Failed to import RPi.GPIO module: {e}")
-        logger.warning("Falling back to mock implementation")
-        # Import mock implementation if real one fails
-        from backend.mock_pi_handler import MockPiHandler as PiHandler
-else:
-    # In development mode, use mock implementation
-    from backend.mock_pi_handler import MockPiHandler as PiHandler
-    logger.info("Using mock Pi hardware implementation (development mode)")
+# Define HardwareManager type for type hints
+HardwareManager = Any
+
+# Import HardwareManager or MockHardwareManager based on configuration
+try:
+    if USE_PI_HARDWARE:
+        # Attempt to import real HardwareManager
+        from backend.hardware_manager import HardwareManager
+        logger.info("Using real hardware implementation")
+    else:
+        logger.info("Hardware disabled by configuration")
+        from backend.mock_hardware_manager import MockHardwareManager as HardwareManager
+except ImportError:
+    logger.info("Using mock hardware implementation (development mode)")
+    from backend.mock_hardware_manager import MockHardwareManager as HardwareManager
 
 
-@lru_cache()
 def get_settings_manager() -> SettingsManager:
     """Get or create SettingsManager instance."""
-    return SettingsManager(str(config.data_dir))
+    if 'settings_manager' not in _instances:
+        logger.debug("Creating SettingsManager instance")
+        _instances['settings_manager'] = SettingsManager()
+    return _instances['settings_manager']
 
 
-@lru_cache()
 def get_audio_manager() -> AudioManager:
     """Get or create AudioManager instance."""
-    return AudioManager()
+    if 'audio_manager' not in _instances:
+        logger.debug("Creating AudioManager instance")
+        _instances['audio_manager'] = AudioManager()
+    return _instances['audio_manager']
 
 
-@lru_cache()
-def get_pi_handler(
+def get_hardware_manager(
     settings_manager: SettingsManager = Depends(get_settings_manager),
     audio_manager: AudioManager = Depends(get_audio_manager)
-) -> Optional[PiHandler]:
-    """Get or create PiHandler instance."""
-    try:
-        return PiHandler(settings_manager, audio_manager)
-    except Exception as e:
-        logger.error(f"Failed to initialize Pi hardware: {e}")
-        return None
+) -> Optional[HardwareManager]:
+    """Get or create HardwareManager instance."""
+    if 'hardware_manager' not in _instances:
+        try:
+            logger.debug("Creating HardwareManager instance")
+            _instances['hardware_manager'] = HardwareManager(settings_manager, audio_manager)
+        except Exception as e:
+            logger.error(f"Failed to initialize hardware: {e}")
+            _instances['hardware_manager'] = None
+    return _instances['hardware_manager']
 
 
-@lru_cache()
 def get_alarm_manager(
     settings_manager: SettingsManager = Depends(get_settings_manager),
     audio_manager: AudioManager = Depends(get_audio_manager),
-    pi_handler: Optional[PiHandler] = Depends(get_pi_handler)
+    hardware_manager: Optional[HardwareManager] = Depends(get_hardware_manager)
 ) -> AlarmManager:
     """Get or create AlarmManager instance."""
-    return AlarmManager(settings_manager, audio_manager, pi_handler)
+    if 'alarm_manager' not in _instances:
+        logger.debug("Creating AlarmManager instance")
+        _instances['alarm_manager'] = AlarmManager(settings_manager, audio_manager, hardware_manager)
+    return _instances['alarm_manager']

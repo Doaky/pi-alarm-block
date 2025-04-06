@@ -36,15 +36,13 @@ class SettingsManager:
     schedule type and global alarm status. It ensures settings are properly
     validated and persisted to disk.
     """
-
-    def __init__(self, data_dir: str):
+    def __init__(self):
         """
-        Initialize SettingsManager with data directory.
-        
-        Args:
-            data_dir: Path to the data directory
+        Initialize SettingsManager with the project data directory.
         """
-        self.data_dir = Path(data_dir)
+        # Use the project data directory directly
+        from backend.config import PROJECT_DATA_DIR
+        self.data_dir = PROJECT_DATA_DIR
         self.file_path = self.data_dir / "settings.json"
         
         # Ensure data directory exists

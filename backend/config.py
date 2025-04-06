@@ -38,12 +38,16 @@ USER_HOME = Path.home()
 USER_DATA_DIR = USER_HOME / ".local" / "share" / "alarm-block"
 USER_LOG_DIR = USER_HOME / ".local" / "log" / "alarm-block"
 
+# Project-relative data directory (for settings and alarms)
+PROJECT_DATA_DIR = Path(__file__).parent / "data"  # backend/data/
+
 # Ensure base directories exist
 try:
     USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
     USER_LOG_DIR.mkdir(parents=True, exist_ok=True)
     (USER_DATA_DIR / "data").mkdir(exist_ok=True)
     (USER_DATA_DIR / "frontend").mkdir(exist_ok=True)
+    PROJECT_DATA_DIR.mkdir(parents=True, exist_ok=True)
 except PermissionError:
     print(f"Error: Permission denied when creating directories at {USER_DATA_DIR}")
     print("Please ensure you have write permissions to this location or run with sudo.")
@@ -78,7 +82,7 @@ class Config(BaseSettings):
     log: LogConfig = Field(default_factory=LogConfig)
     server: ServerConfig = Field(default_factory=ServerConfig)
     data_dir: Path = Field(
-        USER_DATA_DIR / "data",
+        PROJECT_DATA_DIR,
         description="Data storage directory"
     )
     dev_mode: bool = Field(
