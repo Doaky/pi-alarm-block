@@ -22,7 +22,7 @@ class HardwareManager:
     BUTTON_PIN = 13  # Rotary Encoder Button
     SCHEDULE_PIN = 24  # Schedule Switch
     GLOBAL_PIN = 25  # Global Switch
-    VOLUME_STEP = 0.05  # 5% volume adjustment step
+    VOLUME_STEP = 5  # 5% volume adjustment step
 
     def __init__(self, settings_manager: SettingsManager, audio_manager: AudioManager):
         """Initialize HardwareManager with GPIO setup.
@@ -82,7 +82,7 @@ class HardwareManager:
                     pass
                 GPIO.add_event_detect(self.BUTTON_PIN, GPIO.FALLING, 
                                     callback=self._on_rotary_button_pressed, 
-                                    bouncetime=200)
+                                    bouncetime=300)  # Increased debounce time for more reliable button press
                 logger.debug(f"Added event detection for BUTTON_PIN (pin {self.BUTTON_PIN})")
             except Exception as e:
                 logger.warning(f"Could not set up event detection for BUTTON_PIN: {str(e)}")
@@ -133,14 +133,18 @@ class HardwareManager:
                 
                 # Clockwise rotation - increase volume
                 if current_b != current_a:
-                    # Calculate new volume (increase by 5%)
-                    new_volume = min(100, current_volume + int(self.VOLUME_STEP * 100))
+                    # Calculate new volume (increase by 5)
+                    new_volume = min(100, current_volume + self.VOLUME_STEP)
+                    # Round to nearest 5
+                    new_volume = 5 * round(new_volume / 5)
                     self.audio_manager.adjust_volume(new_volume)
                     logger.info(f"Volume increased to {new_volume}%")
                 # Counter-clockwise rotation - decrease volume
                 else:
-                    # Calculate new volume (decrease by 5%)
-                    new_volume = max(0, current_volume - int(self.VOLUME_STEP * 100))
+                    # Calculate new volume (decrease by 5)
+                    new_volume = max(0, current_volume - self.VOLUME_STEP)
+                    # Round to nearest 5
+                    new_volume = 5 * round(new_volume / 5)
                     self.audio_manager.adjust_volume(new_volume)
                     logger.info(f"Volume decreased to {new_volume}%")
             
@@ -156,7 +160,19 @@ class HardwareManager:
             channel: GPIO channel that triggered the event
         """
         try:
-            self.audio_manager.toggle_white_noise()
+            # Check if white noise is currently playing
+            was_playing = self.audio_manager.is_white_noise_playing()
+            
+            # Toggle white noise
+            result = self.audio_manager.toggle_white_noise()
+            
+            # Log the action with clear status
+            if was_playing:
+                logger.info("White noise turned OFF by rotary button press")
+            else:
+                logger.info("White noise turned ON by rotary button press")
+                
+            return result
         except Exception as e:
             logger.error(f"Error handling rotary button press: {str(e)}")
 
@@ -169,7 +185,10 @@ class HardwareManager:
         try:
             state = GPIO.input(self.SCHEDULE_PIN)
             self.settings_manager.set_is_primary_schedule(state)
-            logger.info(f"Primary schedule toggled to: {state}")
+            
+            # Log with more descriptive message
+            schedule_name = "Primary" if state else "Secondary"
+            logger.info(f"Schedule switched to: {schedule_name} (value={state})")
         except Exception as e:
             logger.error(f"Error toggling schedule: {str(e)}")
 
@@ -182,7 +201,10 @@ class HardwareManager:
         try:
             state = GPIO.input(self.GLOBAL_PIN)
             self.settings_manager.set_is_global_on(state)
-            logger.info(f"Global status toggled to: {state}")
+            
+            # Log with more descriptive message
+            status_text = "ON" if state else "OFF"
+            logger.info(f"Global alarm system turned {status_text} (value={state})")
         except Exception as e:
             logger.error(f"Error toggling global status: {str(e)}")
 

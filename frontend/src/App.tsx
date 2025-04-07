@@ -8,6 +8,7 @@ import { ScheduleControls } from './components/ScheduleControls';
 import { AlarmForm } from './components/AlarmForm';
 import { AlarmList } from './components/AlarmList';
 import { AudioControls } from './components/AudioControls';
+import { ShutdownButton } from './components/ShutdownButton';
 import { useAlarms } from './hooks/useAlarms';
 import { useAlarmForm } from './hooks/useAlarmForm';
 import { useAudio } from './hooks/useAudio';
@@ -52,7 +53,7 @@ const App = () => {
 
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <div className="min-h-screen p-4 bg-gray-900 text-white body-font">
+            <div className="min-h-screen p-4 bg-gray-900 text-white body-font relative">
                 <div className="max-w-4xl mx-auto">
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold title-font">Alarm Block</h1>
@@ -100,6 +101,7 @@ const App = () => {
                     limit={3} 
                     newestOnTop 
                 />
+                <ShutdownButton />
             </div>
         </LocalizationProvider>
     );

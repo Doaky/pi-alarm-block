@@ -1,9 +1,12 @@
 import os
 import random
 import threading
+import time
 from typing import Dict, List, Optional
 import pygame
 from pydantic import BaseModel, Field, field_validator
+import asyncio
+import logging
 
 # Import settings manager for volume persistence
 from backend.settings_manager import SettingsManager
@@ -102,6 +105,9 @@ class AudioManager:
         self._alarm_volume = self._config.alarm_volume
         self._previous_volume = self._volume  # For restoring white noise volume after alarm
         
+        # Initialize playback state variables
+        self._alarm_playing = False
+        self._white_noise_playing = False
         self._alarm_sounds: List[str] = []
         
         # Check if we're in development mode
@@ -109,16 +115,20 @@ class AudioManager:
             logger.info("Running in development mode - using mock audio implementation")
             # In development mode, we don't initialize pygame mixer
             self._mock_mode = True
-            self._alarm_playing = False
-            self._white_noise_playing = False
         else:
             # Only initialize pygame mixer when not in development mode
             self._mock_mode = False
             try:
-                pygame.mixer.init()
+                # Initialize with a higher frequency and buffer size to reduce popping
+                pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
                 pygame.mixer.set_num_channels(8)  # Reserve channels for different sounds
                 # Set the volume directly instead of using the removed _set_volume method
                 pygame.mixer.music.set_volume(self._volume / 100.0)
+                
+                # Play a short, silent sound to initialize the audio system properly
+                # This helps prevent the initial pop sound
+                self._init_audio_system()
+                
                 logger.info("Audio system initialized successfully")
                 
                 # Initialize pygame-specific state
@@ -200,6 +210,8 @@ class AudioManager:
             with self._lock:
                 self._alarm_playing = True
                 logger.info("Mock mode: Alarm started playing")
+            # Broadcast alarm status update
+            self._broadcast_alarm_status(True)
             return
         
         # Check if we have any alarm sounds loaded
@@ -242,6 +254,9 @@ class AudioManager:
                 self._alarm_playing = True
                 
             logger.info(f"Alarm started playing: {selected_alarm_key}")
+            
+            # Broadcast alarm status update
+            self._broadcast_alarm_status(True)
         except Exception as e:
             logger.error(f"Failed to play alarm: {str(e)}")
 
@@ -252,6 +267,8 @@ class AudioManager:
             with self._lock:
                 self._alarm_playing = False
                 logger.info("Mock mode: Alarm stopped")
+            # Broadcast alarm status update
+            self._broadcast_alarm_status(False)
             return
         
         # Get current state with minimal locking
@@ -286,25 +303,36 @@ class AudioManager:
                 self._adjust_white_noise_volume(previous_volume)
                 
             logger.info("Alarm stopped")
+            
+            # Broadcast alarm status update
+            self._broadcast_alarm_status(False)
         except Exception as e:
             logger.error(f"Failed to stop alarm: {str(e)}")
 
     def play_white_noise(self) -> bool:
         """
-        Play white noise.
-        
-        If white noise is already playing, this will restart it.
-        White noise can play alongside alarms, but at a reduced volume when an alarm is active.
+        Play white noise sound.
         
         Returns:
-            bool: True if white noise started successfully, False otherwise
+            bool: True if operation was successful, False otherwise
         """
-        # First do quick checks without lock
+        # Handle mock mode with minimal locking
         if self._mock_mode:
             with self._lock:
                 self._white_noise_playing = True
                 logger.info("Mock mode: White noise started playing")
+            # Broadcast white noise status update
+            self._broadcast_white_noise_status(True)
             return True
+        
+        # Get current state with minimal locking
+        channel = None
+        with self._lock:
+            channel = self._white_noise_channel
+            if not channel or not channel.get_busy():
+                # Nothing to stop, just update state
+                self._white_noise_playing = False
+                return True
             
         # Validate sound is loaded (quick check first)
         if 'white_noise' not in self._sounds:
@@ -353,6 +381,9 @@ class AudioManager:
                 self._previous_volume = self._volume  # Store for restoration
                 
             logger.info("White noise started playing")
+            
+            # Broadcast white noise status update
+            self._broadcast_white_noise_status(True)
             return True
             
         except pygame.error as e:
@@ -378,6 +409,8 @@ class AudioManager:
             with self._lock:
                 self._white_noise_playing = False
                 logger.info("Mock mode: White noise stopped")
+            # Broadcast white noise status update
+            self._broadcast_white_noise_status(False)
             return True
         
         # Get current state with minimal locking
@@ -399,6 +432,9 @@ class AudioManager:
                 self._white_noise_playing = False
                 
             logger.info("White noise stopped")
+            
+            # Broadcast white noise status update
+            self._broadcast_white_noise_status(False)
             return True
         except pygame.error as e:
             logger.error(f"Pygame error stopping white noise: {str(e)}")
@@ -449,6 +485,9 @@ class AudioManager:
                 logger.warning(f"Failed to save volume to settings: {e}")
                 
         logger.info(f"Volume adjusted to {volume}%")
+        
+        # Broadcast volume update
+        self._broadcast_volume_update(volume)
         
     def _adjust_white_noise_volume(self, volume: int) -> None:
         """
@@ -550,6 +589,22 @@ class AudioManager:
                     
         logger.info(f"Alarm volume set to {volume}%")
 
+    def _init_audio_system(self) -> None:
+        """Initialize audio system with a silent buffer to prevent popping."""
+        try:
+            # Create a short silent sound buffer
+            silent_buffer = pygame.mixer.Sound(buffer=bytes(bytearray(1024)))
+            # Play it at zero volume to initialize the audio system
+            silent_channel = pygame.mixer.Channel(0)
+            silent_channel.set_volume(0.0)
+            silent_channel.play(silent_buffer)
+            # Wait a short time for the system to stabilize
+            time.sleep(0.1)
+            silent_channel.stop()
+            logger.debug("Audio system pre-initialized with silent buffer")
+        except Exception as e:
+            logger.warning(f"Could not pre-initialize audio system: {str(e)}")
+
     def cleanup(self) -> None:
         """Clean up resources and stop all audio."""
         if self._mock_mode:
@@ -558,20 +613,52 @@ class AudioManager:
                 self._white_noise_playing = False
             logger.info("Mock mode: Audio resources cleaned up")
             return
-                
-        try:
-            # Stop all playback (these methods handle their own locking)
-            self.stop_alarm()
-            self.stop_white_noise()
             
-            # Clear sound resources and quit mixer with lock
-            with self._lock:
-                # Clear sound resources
-                self._sounds.clear()
+        try:
+            # Stop any playing sounds
+            if self.is_alarm_playing():
+                self.stop_alarm()
+            if self.is_white_noise_playing():
+                self.stop_white_noise()
                 
-                # Quit pygame mixer
+            # Quit pygame mixer if initialized
+            if not self._mock_mode and pygame.mixer.get_init():
                 pygame.mixer.quit()
+                logger.info("Pygame mixer closed")
                 
-            logger.info("Audio resources cleaned up")
+            logger.info("Audio resources cleaned up successfully")
         except Exception as e:
             logger.error(f"Error during audio cleanup: {str(e)}")
+            
+    def _broadcast_alarm_status(self, is_playing: bool) -> None:
+        """Broadcast alarm status update via WebSocket."""
+        try:
+            # Import here to avoid circular imports
+            from backend.websocket_manager import connection_manager
+            
+            # Run the broadcast in a background task to avoid blocking
+            asyncio.create_task(connection_manager.broadcast_alarm_status(is_playing))
+        except Exception as e:
+            logger.error(f"Failed to broadcast alarm status update: {e}")
+    
+    def _broadcast_white_noise_status(self, is_playing: bool) -> None:
+        """Broadcast white noise status update via WebSocket."""
+        try:
+            # Import here to avoid circular imports
+            from backend.websocket_manager import connection_manager
+            
+            # Run the broadcast in a background task to avoid blocking
+            asyncio.create_task(connection_manager.broadcast_white_noise_status(is_playing))
+        except Exception as e:
+            logger.error(f"Failed to broadcast white noise status update: {e}")
+    
+    def _broadcast_volume_update(self, volume: int) -> None:
+        """Broadcast volume update via WebSocket."""
+        try:
+            # Import here to avoid circular imports
+            from backend.websocket_manager import connection_manager
+            
+            # Run the broadcast in a background task to avoid blocking
+            asyncio.create_task(connection_manager.broadcast_volume_update(volume))
+        except Exception as e:
+            logger.error(f"Failed to broadcast volume update: {e}")

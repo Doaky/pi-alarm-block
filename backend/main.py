@@ -25,6 +25,7 @@ from backend.alarm_manager import AlarmManager
 # Import routes
 from backend.routes import alarm_routes, schedule_routes, system_routes
 from backend.routes.audio_routes import router as audio_router
+from backend.routes.websocket_routes import router as websocket_router
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -53,6 +54,9 @@ app.include_router(alarm_routes.router, prefix="/api/v1", tags=["alarms"])
 app.include_router(schedule_routes.router, prefix="/api/v1", tags=["schedules"])
 app.include_router(system_routes.router, prefix="/api/v1", tags=["system"])
 app.include_router(audio_router, prefix="/api/v1")
+
+# Include WebSocket router without prefix
+app.include_router(websocket_router)
 
 # Health check endpoint
 @app.get("/health")

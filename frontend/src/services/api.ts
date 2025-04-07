@@ -108,3 +108,17 @@ export const getVolume = async (): Promise<{ volume: number, mode: string }> => 
     }
     return response.json();
 };
+
+export const shutdownSystem = async (): Promise<void> => {
+    try {
+        const response = await fetch(`${API_URL}/api/v1/shutdown`, {
+            method: "POST"
+        });
+        if (!response.ok) {
+            throw new Error('Failed to initiate shutdown');
+        }
+    } catch (error) {
+        console.error('Shutdown error:', error);
+        throw error;
+    }
+};

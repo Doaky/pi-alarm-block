@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import Dict, Literal
+import asyncio
+from typing import Dict, Literal, Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 
@@ -142,6 +143,9 @@ class SettingsManager:
             self._settings.schedule = ScheduleType(schedule)
             self._save_settings()
             logger.info(f"Schedule set to: {schedule}")
+            
+            # Broadcast the schedule change via WebSocket
+            self._broadcast_schedule_update()
         except Exception as e:
             logger.error(f"Failed to set schedule: {e}")
             raise ValueError(f"Invalid schedule type: {e}")
@@ -190,6 +194,9 @@ class SettingsManager:
             self._settings.volume = volume
             self._save_settings()
             logger.info(f"Volume set to: {volume}%")
+            
+            # Broadcast the volume change via WebSocket
+            self._broadcast_volume_update(volume)
         except Exception as e:
             logger.error(f"Failed to set volume: {e}")
             raise ValueError(f"Invalid volume level: {e}")
@@ -200,6 +207,34 @@ class SettingsManager:
             self._settings = Settings()
             self._save_settings()
             logger.info("Settings reset to defaults")
+            
+            # Broadcast all setting updates
+            self._broadcast_schedule_update()
+            self._broadcast_volume_update(self._settings.volume)
         except Exception as e:
             logger.error(f"Failed to reset settings: {e}")
             raise
+            
+    def _broadcast_schedule_update(self) -> None:
+        """Broadcast schedule update via WebSocket."""
+        try:
+            # Import here to avoid circular imports
+            from backend.websocket_manager import connection_manager
+            
+            # Run the broadcast in a background task to avoid blocking
+            asyncio.create_task(connection_manager.broadcast_schedule_update(
+                self.get_is_primary_schedule()
+            ))
+        except Exception as e:
+            logger.error(f"Failed to broadcast schedule update: {e}")
+    
+    def _broadcast_volume_update(self, volume: int) -> None:
+        """Broadcast volume update via WebSocket."""
+        try:
+            # Import here to avoid circular imports
+            from backend.websocket_manager import connection_manager
+            
+            # Run the broadcast in a background task to avoid blocking
+            asyncio.create_task(connection_manager.broadcast_volume_update(volume))
+        except Exception as e:
+            logger.error(f"Failed to broadcast volume update: {e}")
