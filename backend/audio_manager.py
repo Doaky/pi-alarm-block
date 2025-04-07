@@ -88,6 +88,10 @@ class AudioManager:
 
         # Create sounds directory if it doesn't exist
         os.makedirs(self._config.sounds_dir, exist_ok=True)
+        
+        # Create alarm sounds directory if it doesn't exist
+        alarm_sounds_path = os.path.join(self._config.sounds_dir, self._config.alarm_sounds_dir)
+        os.makedirs(alarm_sounds_path, exist_ok=True)
 
         # Initialize state
         self._lock = threading.Lock()
@@ -120,9 +124,18 @@ class AudioManager:
             self._mock_mode = False
             try:
                 # Initialize with a higher frequency and buffer size to reduce popping
-                pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
+                # For Raspberry Pi, we need to ensure the audio device is properly initialized
+                # Set the SDL_AUDIODRIVER environment variable to ensure proper audio device selection
+                os.environ['SDL_AUDIODRIVER'] = 'alsa'
+                
+                # Initialize pygame
+                pygame.init()
+                
+                # Initialize mixer with more conservative settings for Raspberry Pi
+                pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=4096)
                 pygame.mixer.set_num_channels(8)  # Reserve channels for different sounds
-                # Set the volume directly instead of using the removed _set_volume method
+                
+                # Set the volume directly
                 pygame.mixer.music.set_volume(self._volume / 100.0)
                 
                 # Play a short, silent sound to initialize the audio system properly
@@ -153,50 +166,69 @@ class AudioManager:
         try:
             # Load alarm sounds from the alarm_sounds directory
             alarm_sounds_path = os.path.join(self._config.sounds_dir, self._config.alarm_sounds_dir)
+            
+            # Ensure directory exists
+            os.makedirs(alarm_sounds_path, exist_ok=True)
+            
+            # Check if directory is empty
+            if not os.path.exists(alarm_sounds_path) or not os.listdir(alarm_sounds_path):
+                logger.warning(f"Alarm sounds directory is empty: {alarm_sounds_path}")
+                # Load default alarm sound as fallback
+                self._load_default_alarm_sound()
+                return
+                
             # Get all valid sound files in the alarm_sounds directory
+            found_sounds = False
             for filename in os.listdir(alarm_sounds_path):
                 # Skip files with .Identifier extension (these are Windows metadata files)
                 if filename.endswith('.ogg') and not filename.endswith('.Identifier'):
                     full_path = os.path.join(alarm_sounds_path, filename)
                     sound_key = f"alarm_{filename}"
-                    self._sounds[sound_key] = pygame.mixer.Sound(full_path)
-                    self._alarm_sounds.append(sound_key)
-                    logger.info(f"Loaded alarm sound: {full_path}")
-            
+                    try:
+                        self._sounds[sound_key] = pygame.mixer.Sound(full_path)
+                        self._alarm_sounds.append(sound_key)
+                        logger.info(f"Loaded alarm sound: {full_path}")
+                        found_sounds = True
+                    except Exception as e:
+                        logger.error(f"Failed to load sound {full_path}: {str(e)}")
+        
             # Check if we found any alarm sounds
-            if not self._alarm_sounds:
+            if not found_sounds:
                 logger.warning(f"No alarm sounds found in {alarm_sounds_path}, using default")
                 # Load default alarm sound as fallback
                 self._load_default_alarm_sound()
             else:
                 logger.info(f"Loaded {len(self._alarm_sounds)} alarm sounds")
-            
+        
             # Load white noise sound
             white_noise_path = os.path.join(self._config.sounds_dir, self._config.white_noise_sound)
             if os.path.exists(white_noise_path):
-                self._sounds['white_noise'] = pygame.mixer.Sound(white_noise_path)
-                logger.info(f"Loaded white noise sound: {white_noise_path}")
+                try:
+                    self._sounds['white_noise'] = pygame.mixer.Sound(white_noise_path)
+                    logger.info(f"Loaded white noise sound: {white_noise_path}")
+                except Exception as e:
+                    logger.error(f"Failed to load white noise sound {white_noise_path}: {str(e)}")
             else:
                 logger.warning(f"White noise sound file not found: {white_noise_path}")
         except Exception as e:
             logger.error(f"Failed to load sounds: {str(e)}")
             raise RuntimeError(f"Failed to load sounds: {str(e)}")
-        
-        
+
     def _load_default_alarm_sound(self) -> None:
         """
         Load the default alarm sound as fallback.
         """
-        # Load default alarm sound from the sounds directory
-        alarm_path = os.path.join(self._config.sounds_dir, self._config.alarm_sound)
-        if os.path.exists(alarm_path):
-            self._sounds['alarm'] = pygame.mixer.Sound(alarm_path)
-            self._alarm_sounds.append('alarm')
-            logger.info(f"Loaded default alarm sound: {alarm_path}")
-        else:
-            logger.warning(f"Default alarm sound file not found: {alarm_path}")
-
-
+        try:
+            default_path = os.path.join(self._config.sounds_dir, self._config.alarm_sound)
+            if os.path.exists(default_path):
+                sound_key = "alarm_default"
+                self._sounds[sound_key] = pygame.mixer.Sound(default_path)
+                self._alarm_sounds.append(sound_key)
+                logger.info(f"Loaded default alarm sound: {default_path}")
+            else:
+                logger.error(f"Default alarm sound not found: {default_path}")
+        except Exception as e:
+            logger.error(f"Failed to load default alarm sound: {str(e)}")
 
     def play_alarm(self) -> None:
         """
@@ -221,7 +253,7 @@ class AudioManager:
             # Store current volume for later restoration
             if self._white_noise_playing:
                 self._previous_volume = self._volume
-            
+        
         if not alarm_sounds:
             logger.warning("No alarm sounds loaded")
             return
@@ -246,7 +278,18 @@ class AudioManager:
                 
             # Set volume and play (these are fast operations)
             channel.set_volume(self._alarm_volume / 100.0)
-            channel.play(self._sounds[selected_alarm_key], loops=-1)  # Loop indefinitely
+            
+            # Check if the sound exists and is valid
+            if selected_alarm_key not in self._sounds:
+                logger.error(f"Selected alarm sound not found: {selected_alarm_key}")
+                return
+                
+            # Play the sound with error handling
+            try:
+                channel.play(self._sounds[selected_alarm_key], loops=-1)  # Loop indefinitely
+            except Exception as e:
+                logger.error(f"Failed to play alarm sound: {str(e)}")
+                return
             
             # Update state with lock
             with self._lock:
@@ -264,50 +307,49 @@ class AudioManager:
         """Stop the currently playing alarm and restore white noise volume if needed."""
         # Handle mock mode with minimal locking
         if self._mock_mode:
+            was_playing = False
             with self._lock:
+                was_playing = self._alarm_playing
                 self._alarm_playing = False
+                
+            if was_playing:
                 logger.info("Mock mode: Alarm stopped")
-            # Broadcast alarm status update
-            self._broadcast_alarm_status(False)
+                # Broadcast alarm status update
+                self._broadcast_alarm_status(False)
             return
-        
+            
         # Get current state with minimal locking
         channel = None
         was_playing = False
-        restore_white_noise = False
         previous_volume = 0
         
         with self._lock:
             channel = self._alarm_channel
-            was_playing = channel is not None and channel.get_busy()
-            restore_white_noise = self._white_noise_playing and was_playing
+            was_playing = self._alarm_playing
             previous_volume = self._previous_volume
+            self._alarm_playing = False
+            self._alarm_channel = None
             
-            if not was_playing:
-                # Nothing to stop, just update state
-                self._alarm_playing = False
-                return
-        
-        # Perform the stop operation outside the lock
-        try:
-            # Stop the channel (fast operation)
-            channel.stop()
-            
-            # Update state with lock
-            with self._lock:
-                self._alarm_playing = False
-            
-            # Restore white noise volume if it was playing
-            if restore_white_noise:
-                logger.debug(f"Restoring white noise volume to {previous_volume}%")
-                self._adjust_white_noise_volume(previous_volume)
+        # Stop alarm sound if it was playing
+        if channel and channel.get_busy():
+            try:
+                channel.stop()
+                logger.info("Alarm stopped")
+            except Exception as e:
+                logger.error(f"Error stopping alarm: {str(e)}")
                 
-            logger.info("Alarm stopped")
-            
+        # Restore white noise volume if it was lowered
+        if was_playing and self.is_white_noise_playing():
+            try:
+                self._adjust_white_noise_volume(previous_volume)
+                logger.debug(f"Restored white noise volume to {previous_volume}%")
+            except Exception as e:
+                logger.error(f"Error restoring white noise volume: {str(e)}")
+                
+        # Only broadcast if we actually stopped something
+        if was_playing:
             # Broadcast alarm status update
             self._broadcast_alarm_status(False)
-        except Exception as e:
-            logger.error(f"Failed to stop alarm: {str(e)}")
 
     def play_white_noise(self) -> bool:
         """
@@ -325,15 +367,6 @@ class AudioManager:
             self._broadcast_white_noise_status(True)
             return True
         
-        # Get current state with minimal locking
-        channel = None
-        with self._lock:
-            channel = self._white_noise_channel
-            if not channel or not channel.get_busy():
-                # Nothing to stop, just update state
-                self._white_noise_playing = False
-                return True
-            
         # Validate sound is loaded (quick check first)
         if 'white_noise' not in self._sounds:
             logger.error("White noise sound not loaded - cannot play")
@@ -372,7 +405,15 @@ class AudioManager:
             
             # Set volume and play (these are fast operations)
             channel.set_volume(volume / 100.0)
-            channel.play(self._sounds['white_noise'], loops=-1)  # Loop indefinitely
+            
+            # Play the sound with error handling
+            try:
+                channel.play(self._sounds['white_noise'], loops=-1)  # Loop indefinitely
+            except Exception as e:
+                logger.error(f"Failed to play white noise sound: {str(e)}")
+                with self._lock:
+                    self._white_noise_playing = False
+                return False
             
             # Final state update with lock
             with self._lock:
@@ -406,46 +447,42 @@ class AudioManager:
         """
         # Handle mock mode with minimal locking
         if self._mock_mode:
+            was_playing = False
             with self._lock:
-                self._white_noise_playing = False
-                logger.info("Mock mode: White noise stopped")
-            # Broadcast white noise status update
-            self._broadcast_white_noise_status(False)
-            return True
-        
-        # Get current state with minimal locking
-        channel = None
-        with self._lock:
-            channel = self._white_noise_channel
-            if not channel or not channel.get_busy():
-                # Nothing to stop, just update state
-                self._white_noise_playing = False
-                return True
-        
-        # Perform the stop operation outside the lock
-        try:
-            # Stop the channel (fast operation)
-            channel.stop()
-            
-            # Update state with lock
-            with self._lock:
+                was_playing = self._white_noise_playing
                 self._white_noise_playing = False
                 
-            logger.info("White noise stopped")
+            if was_playing:
+                logger.info("Mock mode: White noise stopped")
+                # Broadcast white noise status update
+                self._broadcast_white_noise_status(False)
+            return True
             
+        # Get current state with minimal locking
+        channel = None
+        was_playing = False
+        
+        with self._lock:
+            channel = self._white_noise_channel
+            was_playing = self._white_noise_playing
+            self._white_noise_playing = False
+            self._white_noise_channel = None
+            
+        # Stop white noise sound if it was playing
+        if channel and channel.get_busy():
+            try:
+                channel.stop()
+                logger.info("White noise stopped")
+            except Exception as e:
+                logger.error(f"Error stopping white noise: {str(e)}")
+                return False
+                
+        # Only broadcast if we actually stopped something
+        if was_playing:
             # Broadcast white noise status update
             self._broadcast_white_noise_status(False)
-            return True
-        except pygame.error as e:
-            logger.error(f"Pygame error stopping white noise: {str(e)}")
-            with self._lock:
-                self._white_noise_playing = False
-            return False
-        except Exception as e:
-            logger.error(f"Failed to stop white noise: {str(e)}")
-            with self._lock:
-                self._white_noise_playing = False
-            return False
+            
+        return True
 
     def adjust_volume(self, volume: int) -> None:
         """
@@ -459,36 +496,40 @@ class AudioManager:
         Raises:
             ValueError: If volume is outside the valid range
         """
-        # Validate volume range before acquiring any locks
+        # Validate volume range
         if not 0 <= volume <= 100:
             raise ValueError("Volume must be between 0 and 100")
-        
-        # Update internal volume state with minimal locking
+            
+        # Update volume with lock
         with self._lock:
             self._volume = volume
-            self._previous_volume = volume  # Update for restoration purposes
-        
-        # Apply volume to white noise channel if active
-        if not self._mock_mode and self.is_white_noise_playing():
+            self._previous_volume = volume  # Update previous volume too
+            
+        # Apply to white noise channel if active (outside lock)
+        if not self._mock_mode and self.is_white_noise_playing() and self._white_noise_channel:
             try:
-                # Apply appropriate volume based on alarm state
-                effective_volume = min(volume, 20) if self.is_alarm_playing() else volume
-                self._white_noise_channel.set_volume(effective_volume / 100.0)
+                # If alarm is playing, use reduced volume
+                if self.is_alarm_playing():
+                    applied_volume = min(volume, 20)  # Cap at 20% when alarm is playing
+                else:
+                    applied_volume = volume
+                    
+                self._white_noise_channel.set_volume(applied_volume / 100.0)
             except Exception as e:
                 logger.error(f"Error setting white noise volume: {e}")
-        
-        # Save to settings (outside lock)
+                
+        # Save to settings if available
         if self._settings_manager is not None:
             try:
                 self._settings_manager.set_volume(volume)
             except Exception as e:
-                logger.warning(f"Failed to save volume to settings: {e}")
+                logger.error(f"Error saving volume to settings: {e}")
                 
-        logger.info(f"Volume adjusted to {volume}%")
+        logger.info(f"Volume set to {volume}%")
         
         # Broadcast volume update
         self._broadcast_volume_update(volume)
-        
+
     def _adjust_white_noise_volume(self, volume: int) -> None:
         """
         Internal method to adjust only the white noise volume temporarily.
@@ -499,15 +540,16 @@ class AudioManager:
             volume: Volume level (0-100)
         """
         # Validate volume range
-        volume = max(0, min(100, volume))
-        
+        if not 0 <= volume <= 100:
+            volume = max(0, min(volume, 100))  # Clamp to valid range
+            
         # Apply to white noise channel if active
         if not self._mock_mode and self.is_white_noise_playing() and self._white_noise_channel:
             try:
                 self._white_noise_channel.set_volume(volume / 100.0)
-                logger.debug(f"White noise volume temporarily adjusted to {volume}%")
+                logger.debug(f"Temporarily adjusted white noise volume to {volume}%")
             except Exception as e:
-                logger.error(f"Error setting white noise volume: {e}")
+                logger.error(f"Error adjusting white noise volume: {e}")
 
     def is_alarm_playing(self) -> bool:
         """Check if an alarm is currently playing."""
@@ -522,21 +564,19 @@ class AudioManager:
         with self._lock:
             if self._mock_mode:
                 return self._white_noise_playing
-            
-            # First check our state variable for quick return
-            if not self._white_noise_playing:
+                
+            # First check our internal state
+            if not self._white_noise_playing or self._white_noise_channel is None:
                 return False
                 
-            # Verify with the actual channel state
-            channel_playing = (self._white_noise_channel is not None and 
-                              self._white_noise_channel.get_busy())
-            
-            # Update state if there's a mismatch
-            if not channel_playing:
-                logger.warning("White noise state mismatch detected - updating state")
+            # Then verify with pygame
+            try:
+                return self._white_noise_channel.get_busy()
+            except Exception as e:
+                logger.error(f"Error checking white noise status: {e}")
+                # Reset our internal state if there was an error
                 self._white_noise_playing = False
-                
-            return self._white_noise_playing
+                return False
 
     def toggle_white_noise(self) -> bool:
         """
@@ -547,30 +587,30 @@ class AudioManager:
         Returns:
             bool: True if operation was successful, False otherwise
         """
-        # No need for lock here as the called methods handle their own locking
         if self.is_white_noise_playing():
             return self.stop_white_noise()
         else:
             return self.play_white_noise()
-    
+
     def get_volume(self) -> int:
         """Get the current master volume level."""
         with self._lock:
             return self._volume
-            
+
     def get_white_noise_volume(self) -> int:
         """Get the current white noise volume level."""
-        with self._lock:
-            # If alarm is playing, white noise is at reduced volume
-            if self.is_alarm_playing() and self.is_white_noise_playing():
-                return min(self._volume, 20)
-            return self._volume
-            
+        if self.is_white_noise_playing() and self._white_noise_channel and not self._mock_mode:
+            try:
+                return int(self._white_noise_channel.get_volume() * 100)
+            except Exception:
+                pass
+        return self.get_volume()
+
     def get_alarm_volume(self) -> int:
         """Get the current alarm volume level."""
         with self._lock:
             return self._alarm_volume
-            
+
     def set_alarm_volume(self, volume: int) -> None:
         """Set the alarm volume level."""
         # Validate volume range
