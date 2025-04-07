@@ -117,7 +117,8 @@ class AudioManager:
             try:
                 pygame.mixer.init()
                 pygame.mixer.set_num_channels(8)  # Reserve channels for different sounds
-                self._set_volume(self._volume)
+                # Set the volume directly instead of using the removed _set_volume method
+                pygame.mixer.music.set_volume(self._volume / 100.0)
                 logger.info("Audio system initialized successfully")
                 
                 # Initialize pygame-specific state
