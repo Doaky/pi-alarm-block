@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { getWhiteNoiseStatus, adjustVolume, getVolume } from '../services/api';
+import { getWhiteNoiseStatus, adjustVolume, getVolume, playWhiteNoise, stopWhiteNoise, getAlarmStatus } from '../services/api';
 import { useDebounce } from './useDebounce';
+import useWebSocket from './useWebSocket';
 
 export const useAudio = () => {
     const [isPlaying, setIsPlaying] = useState(false);
@@ -9,15 +10,43 @@ export const useAudio = () => {
     const [volume, setVolume] = useState(25); // Start with 25%, will be updated from backend
     const debouncedVolume = useDebounce(volume, 300); // 300ms debounce delay
     const initialFetchCompleted = useRef(false); // Track if we've completed the initial fetch
+    
+    // Setup WebSocket listeners for real-time updates
+    useWebSocket({
+        onAlarmStatus: (isAlarmPlaying) => {
+            setIsPlaying(isAlarmPlaying);
+            console.log(`Alarm status updated to ${isAlarmPlaying ? 'playing' : 'stopped'} via WebSocket`);
+        },
+        onWhiteNoiseStatus: (isWhiteNoisePlaying) => {
+            setIsWhiteNoiseActive(isWhiteNoisePlaying);
+            console.log(`White noise status updated to ${isWhiteNoisePlaying ? 'playing' : 'stopped'} via WebSocket`);
+        },
+        onVolumeUpdate: (newVolume) => {
+            // Only update if it's different from our current volume to avoid loops
+            if (Math.abs(newVolume - volume) > 1) {
+                setVolume(newVolume);
+                console.log(`Volume updated to ${newVolume} via WebSocket`);
+            }
+        },
+        onShutdown: () => {
+            console.log('System shutdown notification received');
+            // The WebSocket service will handle displaying the shutdown screen
+        }
+    });
 
-    // Fetch white noise status and volume on component mount
+    // Fetch audio states on component mount
     useEffect(() => {
         const fetchInitialState = async () => {
             try {
                 setIsLoading(true);
                 // Fetch white noise status
-                const status = await getWhiteNoiseStatus();
-                setIsWhiteNoiseActive(status.is_playing);
+                const whiteNoiseStatus = await getWhiteNoiseStatus();
+                setIsWhiteNoiseActive(whiteNoiseStatus.is_playing);
+                
+                // Fetch alarm status
+                const alarmStatus = await getAlarmStatus();
+                setIsPlaying(alarmStatus.is_playing);
+                console.log(`Initial alarm status: ${alarmStatus.is_playing ? 'playing' : 'stopped'}`);
                 
                 // Fetch current volume
                 const volumeData = await getVolume();
@@ -61,6 +90,25 @@ export const useAudio = () => {
         updateVolume();
     }, [debouncedVolume]);
 
+    // Add methods to play and stop white noise
+    const handlePlayWhiteNoise = async () => {
+        try {
+            await playWhiteNoise();
+            setIsWhiteNoiseActive(true);
+        } catch (error) {
+            console.error('Error playing white noise:', error);
+        }
+    };
+
+    const handleStopWhiteNoise = async () => {
+        try {
+            await stopWhiteNoise();
+            setIsWhiteNoiseActive(false);
+        } catch (error) {
+            console.error('Error stopping white noise:', error);
+        }
+    };
+
     return {
         isPlaying,
         setIsPlaying,
@@ -69,6 +117,8 @@ export const useAudio = () => {
         isLoading,
         volume,
         setVolume,
-        handleVolumeChange
+        handleVolumeChange,
+        handlePlayWhiteNoise,
+        handleStopWhiteNoise
     };
 };

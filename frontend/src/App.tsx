@@ -1,4 +1,4 @@
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { createTheme } from '@mui/material/styles';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -12,6 +12,7 @@ import { ShutdownButton } from './components/ShutdownButton';
 import { useAlarms } from './hooks/useAlarms';
 import { useAlarmForm } from './hooks/useAlarmForm';
 import { useAudio } from './hooks/useAudio';
+import useWebSocket from './hooks/useWebSocket';
 
 const darkTheme = createTheme({
     palette: {
@@ -20,6 +21,19 @@ const darkTheme = createTheme({
 });
 
 const App = () => {
+    // Setup WebSocket for system-wide notifications
+    useWebSocket({
+        onShutdown: () => {
+            toast.info("System is shutting down...", {
+                autoClose: false,
+                closeOnClick: false,
+                draggable: false,
+                closeButton: false
+            });
+            // Optionally, you could add a countdown or disable UI elements here
+        }
+    });
+    
     // Custom hooks for state management
     const {
         alarms,
@@ -48,7 +62,9 @@ const App = () => {
         setIsWhiteNoiseActive,
         isLoading: audioLoading,
         volume,
-        handleVolumeChange
+        handleVolumeChange,
+        handlePlayWhiteNoise,
+        handleStopWhiteNoise
     } = useAudio();
 
     return (
@@ -92,6 +108,8 @@ const App = () => {
                             setIsWhiteNoiseActive={setIsWhiteNoiseActive}
                             volume={volume}
                             handleVolumeChange={handleVolumeChange}
+                            handlePlayWhiteNoise={handlePlayWhiteNoise}
+                            handleStopWhiteNoise={handleStopWhiteNoise}
                         />
                     )}
                 </div>

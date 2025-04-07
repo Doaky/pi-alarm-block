@@ -54,40 +54,83 @@ class ConnectionManager:
         for websocket in disconnect_websockets:
             await self.disconnect(websocket)
     
-    async def broadcast_alarm_status(self, is_playing: bool):
-        """Broadcast alarm status update."""
-        await self.broadcast({
-            "type": "ALARM_STATUS_UPDATE",
-            "data": {"is_playing": is_playing}
-        })
-    
-    async def broadcast_white_noise_status(self, is_playing: bool):
-        """Broadcast white noise status update."""
-        await self.broadcast({
-            "type": "WHITE_NOISE_STATUS_UPDATE",
-            "data": {"is_playing": is_playing}
-        })
-    
-    async def broadcast_volume_update(self, volume: int):
-        """Broadcast volume update."""
-        await self.broadcast({
-            "type": "VOLUME_UPDATE",
-            "data": {"volume": volume}
-        })
-    
-    async def broadcast_schedule_update(self, is_primary: bool):
-        """Broadcast schedule update."""
-        await self.broadcast({
-            "type": "SCHEDULE_UPDATE",
-            "data": {"schedule": "a" if is_primary else "b"}
-        })
-    
-    async def broadcast_shutdown(self):
-        """Broadcast shutdown notification."""
-        await self.broadcast({
-            "type": "SYSTEM_SHUTDOWN",
-            "data": {"message": "System is shutting down"}
-        })
+    async def broadcast_alarm_status(self, is_playing: bool) -> None:
+        """Broadcast alarm status update to all connected clients."""
+        message = {
+            "type": "alarm_status",
+            "data": {
+                "is_playing": is_playing
+            }
+        }
+        await self.broadcast(message)
+        
+    async def broadcast_white_noise_status(self, is_playing: bool) -> None:
+        """Broadcast white noise status update to all connected clients."""
+        message = {
+            "type": "white_noise_status",
+            "data": {
+                "is_playing": is_playing
+            }
+        }
+        await self.broadcast(message)
+        
+    async def broadcast_volume_update(self, volume: int) -> None:
+        """Broadcast volume update to all connected clients."""
+        message = {
+            "type": "volume_update",
+            "data": {
+                "volume": volume
+            }
+        }
+        await self.broadcast(message)
+        
+    async def broadcast_schedule_update(self, schedule: str) -> None:
+        """Broadcast schedule update to all connected clients.
+        
+        Args:
+            schedule: Schedule type ('a', 'b', or 'off')
+        """
+        message = {
+            "type": "schedule_update",
+            "data": {
+                "schedule": schedule
+            }
+        }
+        await self.broadcast(message)
+        
+    async def broadcast_global_status_update(self, is_on: bool) -> None:
+        """Broadcast global alarm status update to all connected clients."""
+        message = {
+            "type": "global_status_update",
+            "data": {
+                "is_on": is_on
+            }
+        }
+        await self.broadcast(message)
+        
+    async def broadcast_alarm_update(self, alarms: list) -> None:
+        """Broadcast alarm list update to all connected clients.
+        
+        Args:
+            alarms: List of alarm objects to broadcast
+        """
+        message = {
+            "type": "alarm_update",
+            "data": {
+                "alarms": alarms
+            }
+        }
+        await self.broadcast(message)
+        
+    async def broadcast_shutdown(self) -> None:
+        """Broadcast system shutdown notification to all connected clients."""
+        message = {
+            "type": "system_shutdown",
+            "data": {
+                "shutdown": True
+            }
+        }
+        await self.broadcast(message)
 
 # Create a singleton instance
 connection_manager = ConnectionManager()

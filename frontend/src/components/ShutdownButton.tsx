@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { shutdownSystem } from '../services/api';
+import { displayShutdownScreen } from '../utils/shutdownUtils';
 
 export const ShutdownButton: React.FC = () => {
     const [isConfirming, setIsConfirming] = useState(false);
@@ -23,7 +24,7 @@ export const ShutdownButton: React.FC = () => {
                 toast.success('Shutdown initiated successfully');
                 // Show a message that the app is shutting down
                 setTimeout(() => {
-                    document.body.innerHTML = '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #1a202c; color: white; font-family: sans-serif;"><h1>System is shutting down...</h1></div>';
+                    displayShutdownScreen();
                 }, 1000);
             })
             .catch(() => {

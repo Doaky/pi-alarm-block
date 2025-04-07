@@ -3,6 +3,7 @@
 import logging
 import os
 import signal
+import asyncio
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import PlainTextResponse, JSONResponse
@@ -10,6 +11,7 @@ from typing import Optional
 
 from backend.config import config, IS_RASPBERRY_PI
 from backend.dependencies import _instances
+from backend.websocket_manager import connection_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -33,9 +35,19 @@ async def view_logs(lines: Optional[int] = 1000):
         raise HTTPException(status_code=500, detail="Failed to read log file")
 
 
-def shutdown_application():
+async def shutdown_application():
     """Safely shutdown the application by cleaning up resources and exiting."""
     logger.info("Shutdown requested - cleaning up resources...")
+    
+    # First, broadcast shutdown notification to all connected clients
+    try:
+        logger.info("Broadcasting shutdown notification...")
+        await connection_manager.broadcast_shutdown()
+        # Add a small delay to ensure the message is sent
+        await asyncio.sleep(1)
+        logger.info("Shutdown notification sent successfully")
+    except Exception as e:
+        logger.error(f"Error broadcasting shutdown notification: {str(e)}")
     
     # Clean up all manager instances
     for name, instance in _instances.items():

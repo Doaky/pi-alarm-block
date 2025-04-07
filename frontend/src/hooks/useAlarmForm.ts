@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import dayjs from 'dayjs';
 import { setAlarm } from '../services/api';
 import { Alarm } from '../types/index';
+import { v4 as uuidv4 } from 'uuid';
 
 export const useAlarmForm = (onAlarmSet: (alarm: Alarm) => void) => {
     const [selectedTime, setSelectedTime] = useState<dayjs.Dayjs | null>(dayjs().hour(7).minute(30).second(0));
@@ -21,7 +22,7 @@ export const useAlarmForm = (onAlarmSet: (alarm: Alarm) => void) => {
         }
 
         const newAlarm = {
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             hour: selectedTime.hour(),
             minute: selectedTime.minute(),
             days: [...days].sort(),

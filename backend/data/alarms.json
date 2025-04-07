@@ -35,5 +35,17 @@
         ],
         "is_primary_schedule": true,
         "active": true
+    },
+    {
+        "id": "aed2257f-7da0-4fa5-aaf7-d63908de1863",
+        "hour": 7,
+        "minute": 30,
+        "days": [
+            2,
+            3,
+            4
+        ],
+        "is_primary_schedule": true,
+        "active": true
     }
 ]

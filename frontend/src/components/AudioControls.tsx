@@ -1,7 +1,7 @@
 import { FC, useState, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { Slider } from '@mui/material';
-import { playAlarm, stopAlarm, playWhiteNoise, stopWhiteNoise } from '../services/api';
+import { playAlarm, stopAlarm } from '../services/api';
 
 interface AudioControlsProps {
     isPlaying: boolean;
@@ -10,15 +10,20 @@ interface AudioControlsProps {
     setIsWhiteNoiseActive: (isActive: boolean) => void;
     volume: number;
     handleVolumeChange: (volume: number) => void;
+    handlePlayWhiteNoise: () => Promise<void>;
+    handleStopWhiteNoise: () => Promise<void>;
 }
 
 export const AudioControls: FC<AudioControlsProps> = ({
     isPlaying,
     setIsPlaying,
     isWhiteNoiseActive,
-    setIsWhiteNoiseActive,
+    // setIsWhiteNoiseActive is not used directly in this component anymore
+    // as we're using the passed handlers instead
     volume,
-    handleVolumeChange
+    handleVolumeChange,
+    handlePlayWhiteNoise,
+    handleStopWhiteNoise
 }) => {
     const [isAdjusting, setIsAdjusting] = useState(false);
     const adjustingTimeoutRef = useRef<number | null>(null);
@@ -42,25 +47,7 @@ export const AudioControls: FC<AudioControlsProps> = ({
         }
     };
 
-    const handlePlayWhiteNoise = async () => {
-        try {
-            await playWhiteNoise();
-            setIsWhiteNoiseActive(true);
-        } catch (err) {
-            toast.error("Failed to play white noise");
-            console.error("Error playing white noise:", err);
-        }
-    };
-
-    const handleStopWhiteNoise = async () => {
-        try {
-            await stopWhiteNoise();
-            setIsWhiteNoiseActive(false);
-        } catch (err) {
-            toast.error("Failed to stop white noise");
-            console.error("Error stopping white noise:", err);
-        }
-    };
+    // We're now using the methods passed from the useAudio hook
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

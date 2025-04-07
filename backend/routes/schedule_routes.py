@@ -7,6 +7,7 @@ from typing import Dict, Any
 from backend.settings_manager import SettingsManager
 from backend.utils.error_handler import ValidationError, AlarmBlockError
 from backend.dependencies import get_settings_manager
+from backend.websocket_manager import connection_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -34,8 +35,14 @@ async def set_schedule(
         if "schedule" not in schedule:
             raise ValidationError("Missing schedule data")
         
+        # Update the schedule in settings manager
         settings_manager.set_schedule(schedule["schedule"])
         logger.info("Schedule updated successfully")
+        
+        # Broadcast the schedule update to all connected clients
+        # Use the schedule string directly
+        await connection_manager.broadcast_schedule_update(schedule["schedule"])
+        
         return {"message": "Schedule updated successfully", "schedule": schedule["schedule"]}
     except ValidationError as e:
         logger.error(f"Validation error: {str(e)}")

@@ -1,6 +1,5 @@
 import json
 import logging
-from pathlib import Path
 from typing import Dict, List, Optional, TYPE_CHECKING
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -213,10 +212,16 @@ class AlarmManager:
 
             logger.info(f"Triggering alarm: {alarm.hour:02d}:{alarm.minute:02d} - Primary: {alarm.is_primary_schedule}")
         
-            if self.hardware_manager:
-                self.hardware_manager.play_alarm()
-            else:
-                logger.warning("No hardware interface available for alarm playback")
+            # Use audio_manager to play the alarm
+            self.audio_manager.play_alarm()
+            
+            # Broadcast alarm status via WebSocket
+            try:
+                from backend.websocket_manager import connection_manager
+                import asyncio
+                asyncio.create_task(connection_manager.broadcast_alarm_status(True))
+            except Exception as e:
+                logger.error(f"Failed to broadcast alarm status: {str(e)}")
 
         except Exception as e:
             logger.error(f"Error triggering alarm {alarm_id}: {str(e)}")

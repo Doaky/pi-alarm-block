@@ -2,13 +2,13 @@
 
 import logging
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
 from typing import List
 
 from backend.alarm import Alarm, AlarmResponse
 from backend.alarm_manager import AlarmManager
 from backend.utils.error_handler import ValidationError, AlarmBlockError
 from backend.dependencies import get_alarm_manager
+from backend.websocket_manager import connection_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -49,6 +49,12 @@ async def set_alarm(
         # Force a save to ensure it's written to disk
         alarm_manager._save_alarms()
         
+        # Get all alarms and convert to dictionaries for JSON serialization
+        alarms = [alarm.to_dict() for alarm in alarm_manager.get_alarms()]
+        
+        # Broadcast alarm update to all connected clients
+        await connection_manager.broadcast_alarm_update(alarms)
+        
         logger.info(f"Alarm set successfully: {alarm_obj.id}")
         return {"message": "Alarm set successfully", "alarm": alarm_obj.to_dict()}
     except ValidationError as e:
@@ -73,6 +79,12 @@ async def remove_alarms(
         
         # Force a save to ensure changes are written to disk
         alarm_manager._save_alarms()
+        
+        # Get all alarms and convert to dictionaries for JSON serialization
+        alarms = [alarm.to_dict() for alarm in alarm_manager.get_alarms()]
+        
+        # Broadcast alarm update to all connected clients
+        await connection_manager.broadcast_alarm_update(alarms)
         
         if not removed_all:
             logger.warning(f"Some alarms could not be removed: {alarm_ids}")

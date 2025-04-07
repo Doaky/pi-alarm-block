@@ -1,5 +1,6 @@
 import logging
 import time
+import asyncio
 from threading import Thread
 from typing import Optional
 
@@ -124,34 +125,55 @@ class HardwareManager:
             channel: GPIO channel that triggered the event
         """
         try:
+            # Get current state of both encoder pins
             current_a = GPIO.input(self.GPIO_A)
             current_b = GPIO.input(self.GPIO_B)
             
-            if current_a != self.last_encoder_state:
-                # Get current volume
-                current_volume = self.audio_manager.get_volume()
+            # Skip if no change in A pin state
+            if current_a == self.last_encoder_state:
+                return
                 
+            # Get current volume
+            current_volume = self.audio_manager.get_volume()
+            
+            # Determine direction based on the state of both pins
+            # If A and B are different, we're rotating clockwise
+            # If A and B are the same, we're rotating counter-clockwise
+            if current_a != current_b:
                 # Clockwise rotation - increase volume
-                if current_b != current_a:
-                    # Calculate new volume (increase by 5)
-                    new_volume = min(100, current_volume + self.VOLUME_STEP)
-                    # Round to nearest 5
-                    new_volume = 5 * round(new_volume / 5)
-                    self.audio_manager.adjust_volume(new_volume)
-                    logger.info(f"Volume increased to {new_volume}%")
-                # Counter-clockwise rotation - decrease volume
-                else:
-                    # Calculate new volume (decrease by 5)
-                    new_volume = max(0, current_volume - self.VOLUME_STEP)
-                    # Round to nearest 5
-                    new_volume = 5 * round(new_volume / 5)
-                    self.audio_manager.adjust_volume(new_volume)
-                    logger.info(f"Volume decreased to {new_volume}%")
+                # Calculate new volume (increase by 5)
+                new_volume = min(100, current_volume + self.VOLUME_STEP)
+                # Round to nearest 5
+                new_volume = 5 * round(new_volume / 5)
+                self.audio_manager.adjust_volume(new_volume)
+                logger.info(f"Volume increased to {new_volume}%")
+            # Counter-clockwise rotation - decrease volume
+            else:
+                # Calculate new volume (decrease by 5)
+                new_volume = max(0, current_volume - self.VOLUME_STEP)
+                # Round to nearest 5
+                new_volume = 5 * round(new_volume / 5)
+                self.audio_manager.adjust_volume(new_volume)
+                logger.info(f"Volume decreased to {new_volume}%")
             
             self.last_encoder_state = current_a
             
+            # Broadcast volume update via WebSocket
+            self._broadcast_volume_update(new_volume)
+            
         except Exception as e:
             logger.error(f"Error in rotary encoder handling: {str(e)}")
+
+    def _broadcast_volume_update(self, volume: int) -> None:
+        """Broadcast volume update via WebSocket."""
+        try:
+            # Import here to avoid circular imports
+            from backend.websocket_manager import connection_manager
+            
+            # Run the broadcast in a background task to avoid blocking
+            asyncio.create_task(connection_manager.broadcast_volume_update(volume))
+        except Exception as e:
+            logger.error(f"Failed to broadcast volume update: {e}")
 
     def _on_rotary_button_pressed(self, channel: int) -> None:
         """Toggle white noise playback.
@@ -171,6 +193,8 @@ class HardwareManager:
                 logger.info("White noise turned OFF by rotary button press")
             else:
                 logger.info("White noise turned ON by rotary button press")
+            
+            # Note: We don't need to broadcast here since audio_manager.toggle_white_noise already broadcasts
                 
             return result
         except Exception as e:
@@ -189,6 +213,9 @@ class HardwareManager:
             # Log with more descriptive message
             schedule_name = "Primary" if state else "Secondary"
             logger.info(f"Schedule switched to: {schedule_name} (value={state})")
+            
+            # Broadcast schedule update via WebSocket
+            self._broadcast_schedule_update(state)
         except Exception as e:
             logger.error(f"Error toggling schedule: {str(e)}")
 
@@ -205,6 +232,9 @@ class HardwareManager:
             # Log with more descriptive message
             status_text = "ON" if state else "OFF"
             logger.info(f"Global alarm system turned {status_text} (value={state})")
+            
+            # Broadcast global status update via WebSocket
+            self._broadcast_global_status_update(state)
         except Exception as e:
             logger.error(f"Error toggling global status: {str(e)}")
 
@@ -213,9 +243,45 @@ class HardwareManager:
         try:
             GPIO.cleanup()
             logger.info("GPIO resources cleaned up successfully")
+            
+            # Broadcast system shutdown via WebSocket
+            self._broadcast_shutdown()
         except Exception as e:
             logger.error(f"Error during GPIO cleanup: {str(e)}")
             raise
+            
+    def _broadcast_schedule_update(self, is_primary: bool) -> None:
+        """Broadcast schedule update via WebSocket."""
+        try:
+            # Import here to avoid circular imports
+            from backend.websocket_manager import connection_manager
+            
+            # Run the broadcast in a background task to avoid blocking
+            asyncio.create_task(connection_manager.broadcast_schedule_update(is_primary))
+        except Exception as e:
+            logger.error(f"Failed to broadcast schedule update: {e}")
+    
+    def _broadcast_global_status_update(self, is_on: bool) -> None:
+        """Broadcast global status update via WebSocket."""
+        try:
+            # Import here to avoid circular imports
+            from backend.websocket_manager import connection_manager
+            
+            # Run the broadcast in a background task to avoid blocking
+            asyncio.create_task(connection_manager.broadcast_global_status_update(is_on))
+        except Exception as e:
+            logger.error(f"Failed to broadcast global status update: {e}")
+    
+    def _broadcast_shutdown(self) -> None:
+        """Broadcast system shutdown via WebSocket."""
+        try:
+            # Import here to avoid circular imports
+            from backend.websocket_manager import connection_manager
+            
+            # Run the broadcast in a background task to avoid blocking
+            asyncio.create_task(connection_manager.broadcast_shutdown())
+        except Exception as e:
+            logger.error(f"Failed to broadcast shutdown: {e}")
 
     def __del__(self) -> None:
         """Ensure cleanup on object destruction."""

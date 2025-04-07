@@ -8,6 +8,7 @@ from backend.utils.error_handler import ValidationError, AlarmBlockError
 from backend.dependencies import get_audio_manager
 from backend.dependencies import AudioManager
 from backend.config import USE_PI_HARDWARE
+from backend.websocket_manager import connection_manager
 
 logger = logging.getLogger(__name__)
 # Define the router with explicit tags for OpenAPI documentation
@@ -46,6 +47,9 @@ async def play_alarm(
         # Always use audio_manager for playing alarms
         audio_manager.play_alarm()
         
+        # Broadcast alarm status update to all connected clients
+        await connection_manager.broadcast_alarm_status(True)
+        
         if not USE_PI_HARDWARE:
             logger.info("Alarm playing (development mode)")
             return {"message": "Alarm playing (development mode)"}
@@ -80,6 +84,9 @@ async def stop_alarm(
     try:
         # Always use audio_manager for stopping alarms
         audio_manager.stop_alarm()
+        
+        # Broadcast alarm status update to all connected clients
+        await connection_manager.broadcast_alarm_status(False)
         
         if not USE_PI_HARDWARE:
             logger.info("Alarm stopped (development mode)")
@@ -119,34 +126,35 @@ async def white_noise(
         # Validate action first
         if action.action not in ["play", "stop"]:
             raise ValidationError(f"Invalid action: {action.action}")
-            
-        # Always use audio_manager for white noise
+        
+        # Handle the action
         if action.action == "play":
             success = audio_manager.play_white_noise()
+            status_msg = "playing"
             
             if not success:
                 logger.error("Failed to play white noise")
                 raise AlarmBlockError("Failed to play white noise")
-            
-            if not USE_PI_HARDWARE:
-                logger.info("White noise started (development mode)")
-                return {"message": "White noise started (development mode)"}
-            else:
-                logger.info("White noise started")
-                return {"message": "White noise started"}
+                
+            # Broadcast white noise status update
+            await connection_manager.broadcast_white_noise_status(True)
         else:  # action.action == "stop"
             success = audio_manager.stop_white_noise()
+            status_msg = "stopped"
             
             if not success:
                 logger.error("Failed to stop white noise")
                 raise AlarmBlockError("Failed to stop white noise")
+                
+            # Broadcast white noise status update
+            await connection_manager.broadcast_white_noise_status(False)
             
-            if not USE_PI_HARDWARE:
-                logger.info("White noise stopped (development mode)")
-                return {"message": "White noise stopped (development mode)"}
-            else:
-                logger.info("White noise stopped")
-                return {"message": "White noise stopped"}
+        if not USE_PI_HARDWARE:
+            logger.info(f"White noise {status_msg} (development mode)")
+            return {"message": f"White noise {status_msg} (development mode)"}
+        else:
+            logger.info(f"White noise {status_msg}")
+            return {"message": f"White noise {status_msg}"}
     except Exception as e:
         logger.error(f"Error controlling white noise: {str(e)}")
         raise AlarmBlockError("Failed to control white noise")
@@ -182,6 +190,9 @@ async def adjust_volume(
         
         # Always use audio_manager for volume control
         audio_manager.adjust_volume(volume)
+        
+        # Broadcast volume update to all connected clients
+        await connection_manager.broadcast_volume_update(volume)
         
         if not USE_PI_HARDWARE:
             logger.info(f"Volume set to {volume} (development mode)")
@@ -261,3 +272,37 @@ async def get_volume(
     except Exception as e:
         logger.error(f"Error retrieving volume level: {str(e)}")
         raise AlarmBlockError("Failed to get volume level")
+
+@router.get("/alarm/status", 
+    summary="Get alarm status",
+    description="Checks if an alarm is currently playing",
+    response_description="Status of alarm playback",
+    responses={
+        200: {"description": "Successfully retrieved alarm status"},
+        500: {"description": "Failed to get alarm status"}
+    }
+)
+async def get_alarm_status(
+    audio_manager: AudioManager = Depends(get_audio_manager)
+):
+    """
+    Get the current status of alarm playback.
+    
+    - In hardware mode: Uses the Raspberry Pi hardware
+    - In development mode: Uses the audio manager
+    
+    Returns:
+        dict: Status indicating if alarm is playing
+    """
+    try:
+        is_playing = audio_manager.is_alarm_playing()
+        
+        if not USE_PI_HARDWARE:
+            logger.info(f"Alarm status checked: {is_playing} (development mode)")
+            return {"is_playing": is_playing, "mode": "development"}
+        else:
+            logger.info(f"Alarm status checked: {is_playing}")
+            return {"is_playing": is_playing, "mode": "hardware"}
+    except Exception as e:
+        logger.error(f"Error checking alarm status: {str(e)}")
+        raise AlarmBlockError("Failed to get alarm status")

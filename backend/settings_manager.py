@@ -223,7 +223,7 @@ class SettingsManager:
             
             # Run the broadcast in a background task to avoid blocking
             asyncio.create_task(connection_manager.broadcast_schedule_update(
-                self.get_is_primary_schedule()
+                self.get_schedule()
             ))
         except Exception as e:
             logger.error(f"Failed to broadcast schedule update: {e}")

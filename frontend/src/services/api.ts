@@ -109,6 +109,14 @@ export const getVolume = async (): Promise<{ volume: number, mode: string }> => 
     return response.json();
 };
 
+export const getAlarmStatus = async (): Promise<{ is_playing: boolean, mode: string }> => {
+    const response = await fetch(`${API_URL}/api/v1/alarm/status`);
+    if (!response.ok) {
+        throw new Error('Failed to get alarm status');
+    }
+    return response.json();
+};
+
 export const shutdownSystem = async (): Promise<void> => {
     try {
         const response = await fetch(`${API_URL}/api/v1/shutdown`, {
