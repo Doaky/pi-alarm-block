@@ -176,7 +176,7 @@ class AudioManager:
         # Delegate to AlarmAudio
         self._alarm_audio.stop_alarm()
 
-    def play_white_noise(self) -> bool:
+    async def play_white_noise(self) -> bool:
         """
         Play white noise sound.
         
@@ -184,16 +184,16 @@ class AudioManager:
             bool: True if operation was successful, False otherwise
         """
         # Delegate to WhiteNoiseAudio with callback to check if alarm is playing
-        return self._white_noise_audio.play_white_noise(
+        return await self._white_noise_audio.play_white_noise(
             is_alarm_playing_callback=self._alarm_audio.is_alarm_playing
         )
 
-    def stop_white_noise(self) -> None:
+    async def stop_white_noise(self) -> None:
         """
         Stop the currently playing white noise sound.
         """
         # Delegate to WhiteNoiseAudio
-        self._white_noise_audio.stop_white_noise()
+        await self._white_noise_audio.stop_white_noise()
 
     def adjust_volume(self, volume: int) -> None:
         """

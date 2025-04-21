@@ -145,13 +145,13 @@ async def white_noise(
     try:
         # Let AudioManager handle the action based on the enum
         if action.action == NoiseAction.PLAY:
-            success = audio_manager.play_white_noise()
+            success = await audio_manager.play_white_noise()
             status_msg = "playing"
             
             if not success:
                 raise AlarmBlockError("Failed to play white noise")
         else:  # action.action == NoiseAction.STOP
-            success = audio_manager.stop_white_noise()
+            success = await audio_manager.stop_white_noise()
             status_msg = "stopped"
             
             if not success:
