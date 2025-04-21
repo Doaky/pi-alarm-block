@@ -146,7 +146,7 @@ class WhiteNoiseAudio:
                 self._white_noise_playing = False
             return False
 
-    def stop_white_noise(self) -> None:
+    async def stop_white_noise(self) -> None:
         """
         Stop the currently playing white noise sound.
         """
@@ -172,7 +172,7 @@ class WhiteNoiseAudio:
         # Only broadcast if we actually stopped something
         if was_playing:
             # Broadcast white noise status update
-            web_socket_manager.broadcast_white_noise_status(False)
+            await web_socket_manager.broadcast_white_noise_status(False)
 
     def adjust_volume(self, volume: int) -> None:
         """

@@ -104,7 +104,7 @@ class AlarmAudio:
         except Exception as e:
             logger.error(f"Failed to load default alarm sound: {str(e)}")
 
-    def play_alarm(self, white_noise_audio=None) -> bool:
+    async def play_alarm(self, white_noise_audio=None) -> bool:
         """
         Play alarm sound.
         
@@ -161,16 +161,16 @@ class AlarmAudio:
             with self._lock:
                 self._alarm_channel = channel
                 self._alarm_playing = True
-                
+            
             logger.info(f"Alarm started playing: {selected_alarm_key}")
             
-            web_socket_manager.broadcast_alarm_status(True)
+            await web_socket_manager.broadcast_alarm_status(True)
             return True
         except Exception as e:
             logger.error(f"Failed to play alarm: {str(e)}")
             return False
 
-    def stop_alarm(self) -> None:
+    async def stop_alarm(self) -> None:
         """
         Stop the currently playing alarm sound.
         """
@@ -195,7 +195,7 @@ class AlarmAudio:
                 
         # Only broadcast if we actually stopped something
         if was_playing:
-            web_socket_manager.broadcast_alarm_status(False)
+            await web_socket_manager.broadcast_alarm_status(False)
 
     def is_alarm_playing(self) -> bool:
         """Check if an alarm is currently playing."""

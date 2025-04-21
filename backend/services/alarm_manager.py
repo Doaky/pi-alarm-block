@@ -110,7 +110,7 @@ class AlarmManager:
             logger.debug(f"Retrieved {len(self.alarms)} alarms", extra={"action": "get_alarms"})
             return list(self.alarms.values())
 
-    def set_alarm(self, alarm: Alarm) -> None:
+    async def set_alarm(self, alarm: Alarm) -> None:
         """Add a new alarm or update an existing one.
         
         Args:
@@ -139,7 +139,7 @@ class AlarmManager:
                 
                 # Broadcast alarm update to all connected clients
                 alarms_dict = [a.to_dict() for a in self.alarms.values()]
-                web_socket_manager.broadcast_alarm_update(alarms_dict)
+                await web_socket_manager.broadcast_alarm_update(alarms_dict)
             
             logger.info(
                 f"Alarm set successfully: {alarm.id}", 
@@ -158,7 +158,7 @@ class AlarmManager:
             logger.error(f"Failed to set alarm: {e}", extra={"action": "set_alarm", "error": str(e)})
             raise AlarmBlockError(f"Failed to set alarm: {e}")
 
-    def remove_alarms(self, alarm_ids: List[str]) -> bool:
+    async def remove_alarms(self, alarm_ids: List[str]) -> bool:
         """Remove multiple alarms by their IDs.
         
         Args:
@@ -194,7 +194,7 @@ class AlarmManager:
                 
                 # Broadcast alarm update to all connected clients
                 alarms_dict = [a.to_dict() for a in self.alarms.values()]
-                web_socket_manager.broadcast_alarm_update(alarms_dict)
+                await web_socket_manager.broadcast_alarm_update(alarms_dict)
                 
             return removed_all
         except Exception as e:
