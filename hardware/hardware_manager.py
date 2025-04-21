@@ -1,35 +1,38 @@
+import asyncio
 import logging
 import time
-import asyncio
 from threading import Thread
-from typing import Optional
 
-try:
-    import RPi.GPIO as GPIO
-except ImportError as e:
-    raise ImportError("RPi.GPIO not found. Make sure you're running on a Raspberry Pi.") from e
+import RPi.GPIO as GPIO
 
-from backend.audio_manager import AudioManager
-from backend.settings_manager import SettingsManager
+from backend.services.audio_manager import AudioManager
+from backend.services.settings_manager import SettingsManager
+from backend.services.websocket_manager import WebSocketManager
+from backend.config import DEV_MODE
 
 logger = logging.getLogger(__name__)
 
 class HardwareManager:
-    """Handles hardware interactions and controls for the alarm system."""
+    """Handles hardware interactions and controls for the alarm block."""
     
-    # GPIO Pin Configuration
-    GPIO_A = 26  # Rotary Encoder Pin A
-    GPIO_B = 6   # Rotary Encoder Pin B
-    BUTTON_PIN = 13  # Rotary Encoder Button
-    SCHEDULE_PIN = 24  # Schedule Switch
-    GLOBAL_PIN = 25  # Global Switch
-    VOLUME_STEP = 5  # 5% volume adjustment step
+    # GPIO Pin Constants
+    ROTARY_PIN_A = 26  # Rotary Encoder Pin A
+    ROTARY_PIN_B = 6  # Rotary Encoder Pin B
+    ROTARY_BUTTON_PIN = 13  # Rotary Encoder Button
 
+    PRIMARY_SCHEDULE_PIN = 24  # Primary Schedule Switch Pin
+    SECONDARY_SCHEDULE_PIN = 25  # Secondary Schedule Switch Pin
+    GLOBAL_PIN = 27  # Global Switch
+   
+
+    # Constants
+    VOLUME_STEP = 5  # 5% volume adjustment step
+    
     def __init__(self, settings_manager: SettingsManager, audio_manager: AudioManager):
         """Initialize HardwareManager with GPIO setup.
         
         Args:
-            settings_manager: Manager for alarm and system settings
+            settings_manager: Manager for alarm block settings
             audio_manager: Manager for audio playback and volume control
         """
         self.settings_manager = settings_manager
@@ -43,91 +46,80 @@ class HardwareManager:
     def _setup_gpio(self) -> None:
         """Set up GPIO pins with proper error handling."""
         try:
-            # Set GPIO mode without cleanup to avoid warnings
             GPIO.setmode(GPIO.BCM)
-            GPIO.setwarnings(False)  # Suppress warnings
+            GPIO.setwarnings(DEV_MODE)
             
-            # Setup input pins with pull-up resistors
-            pins = [
-                self.GPIO_A,
-                self.GPIO_B,
-                self.BUTTON_PIN,
-                self.SCHEDULE_PIN,
-                self.GLOBAL_PIN
-            ]
-            
-            for pin in pins:
-                GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            # Set up GPIO
+            # White Noise Rotary encoder
+            GPIO.setup(self.ROTARY_PIN_A, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            GPIO.setup(self.ROTARY_PIN_B, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            GPIO.setup(self.ROTARY_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+            # Schedule Switch
+            GPIO.setup(self.PRIMARY_SCHEDULE_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            GPIO.setup(self.SECONDARY_SCHEDULE_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            GPIO.setup(self.GLOBAL_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+            # Alarm button
+            # TODO add alarm off button pin
+
+            # Power button
+            # TODO add power button pin
             
             # Initialize encoder state
-            self.last_encoder_state = GPIO.input(self.GPIO_A)
+            self.last_encoder_state = GPIO.input(self.ROTARY_PIN_A)
             
-            # Bind event detection with debouncing - with proper error handling for each pin
             try:
                 # First remove any existing event detection to avoid conflicts
                 try:
-                    GPIO.remove_event_detect(self.GPIO_A)
+                    GPIO.remove_event_detect(self.ROTARY_PIN_A)
                 except:
                     pass
-                GPIO.add_event_detect(self.GPIO_A, GPIO.BOTH, 
+                GPIO.add_event_detect(self.ROTARY_PIN_A, GPIO.BOTH, 
                                     callback=self._on_rotary_rotated, 
                                     bouncetime=50)
-                logger.debug(f"Added event detection for GPIO_A (pin {self.GPIO_A})")
+                logger.debug(f"Added event detection for ROTARY_PIN_A (pin {self.ROTARY_PIN_A})")
             except Exception as e:
-                logger.warning(f"Could not set up event detection for GPIO_A: {str(e)}")
+                logger.warning(f"Could not set up event detection for ROTARY_PIN_A: {str(e)}")
                 
             try:
                 try:
-                    GPIO.remove_event_detect(self.BUTTON_PIN)
+                    GPIO.remove_event_detect(self.ROTARY_BUTTON_PIN)
                 except:
                     pass
-                GPIO.add_event_detect(self.BUTTON_PIN, GPIO.FALLING, 
+                GPIO.add_event_detect(self.ROTARY_BUTTON_PIN, GPIO.FALLING, 
                                     callback=self._on_rotary_button_pressed, 
-                                    bouncetime=300)  # Increased debounce time for more reliable button press
-                logger.debug(f"Added event detection for BUTTON_PIN (pin {self.BUTTON_PIN})")
+                                    bouncetime=300)
+                logger.debug(f"Added event detection for ROTARY_BUTTON_PIN (pin {self.ROTARY_BUTTON_PIN})")
             except Exception as e:
-                logger.warning(f"Could not set up event detection for BUTTON_PIN: {str(e)}")
+                logger.warning(f"Could not set up event detection for ROTARY_BUTTON_PIN: {str(e)}")
                 
             try:
                 try:
-                    GPIO.remove_event_detect(self.SCHEDULE_PIN)
+                    GPIO.remove_event_detect(self.PRIMARY_SCHEDULE_PIN)
                 except:
                     pass
-                GPIO.add_event_detect(self.SCHEDULE_PIN, GPIO.BOTH, 
-                                    callback=self._toggle_primary_schedule, 
+                GPIO.add_event_detect(self.PRIMARY_SCHEDULE_PIN, GPIO.BOTH, 
+                                    callback=self._on_switch_changed, 
                                     bouncetime=200)
-                logger.debug(f"Added event detection for SCHEDULE_PIN (pin {self.SCHEDULE_PIN})")
+                logger.debug(f"Added event detection for PRIMARY_SCHEDULE_PIN (pin {self.PRIMARY_SCHEDULE_PIN})")
             except Exception as e:
-                logger.warning(f"Could not set up event detection for SCHEDULE_PIN: {str(e)}")
+                logger.warning(f"Could not set up event detection for PRIMARY_SCHEDULE_PIN: {str(e)}")
                 
-            try:
-                try:
-                    GPIO.remove_event_detect(self.GLOBAL_PIN)
-                except:
-                    pass
-                GPIO.add_event_detect(self.GLOBAL_PIN, GPIO.BOTH, 
-                                    callback=self._toggle_global_status, 
-                                    bouncetime=200)
-                logger.debug(f"Added event detection for GLOBAL_PIN (pin {self.GLOBAL_PIN})")
-            except Exception as e:
-                logger.warning(f"Could not set up event detection for GLOBAL_PIN: {str(e)}")
-            
             logger.info("GPIO setup completed successfully")
         except Exception as e:
             logger.error(f"Failed to setup GPIO: {str(e)}")
-            # Don't raise here to allow the program to continue even with partial GPIO functionality
-            # Instead, we'll log the error and continue
 
     def _on_rotary_rotated(self, channel: int) -> None:
-        """Handle rotary encoder rotation for volume control.
+        """Handle rotary encoder rotation for white noise volume control.
         
         Args:
             channel: GPIO channel that triggered the event
         """
         try:
             # Get current state of both encoder pins
-            current_a = GPIO.input(self.GPIO_A)
-            current_b = GPIO.input(self.GPIO_B)
+            current_a = GPIO.input(self.ROTARY_PIN_A)
+            current_b = GPIO.input(self.ROTARY_PIN_B)
             
             # Skip if no change in A pin state
             if current_a == self.last_encoder_state:
@@ -140,16 +132,14 @@ class HardwareManager:
             # If A and B are different, we're rotating clockwise
             # If A and B are the same, we're rotating counter-clockwise
             if current_a != current_b:
-                # Clockwise rotation - increase volume
-                # Calculate new volume (increase by 5)
+                # Clockwise rotation - increase volume by 5
                 new_volume = min(100, current_volume + self.VOLUME_STEP)
                 # Round to nearest 5
                 new_volume = 5 * round(new_volume / 5)
                 self.audio_manager.adjust_volume(new_volume)
                 logger.info(f"Volume increased to {new_volume}%")
-            # Counter-clockwise rotation - decrease volume
             else:
-                # Calculate new volume (decrease by 5)
+                # Counter-clockwise rotation - decrease volume by 5
                 new_volume = max(0, current_volume - self.VOLUME_STEP)
                 # Round to nearest 5
                 new_volume = 5 * round(new_volume / 5)
@@ -158,9 +148,6 @@ class HardwareManager:
             
             self.last_encoder_state = current_a
             
-            # Broadcast volume update via WebSocket
-            self._broadcast_volume_update(new_volume)
-            
         except Exception as e:
             logger.error(f"Error in rotary encoder handling: {str(e)}")
 
@@ -168,15 +155,15 @@ class HardwareManager:
         """Broadcast volume update via WebSocket."""
         try:
             # Import here to avoid circular imports
-            from backend.websocket_manager import connection_manager
+            from backend.websocket_manager import web_socket_manager
             
             # Run the broadcast in a background task to avoid blocking
-            asyncio.create_task(connection_manager.broadcast_volume_update(volume))
+            asyncio.create_task(web_socket_manager.broadcast_volume_update(volume))
         except Exception as e:
             logger.error(f"Failed to broadcast volume update: {e}")
 
     def _on_rotary_button_pressed(self, channel: int) -> None:
-        """Toggle white noise playback.
+        """Handle rotary encoder press for toggling white noise playback.
         
         Args:
             channel: GPIO channel that triggered the event
@@ -194,51 +181,46 @@ class HardwareManager:
             else:
                 logger.info("White noise turned ON by rotary button press")
             
-            # Note: We don't need to broadcast here since audio_manager.toggle_white_noise already broadcasts
-                
             return result
         except Exception as e:
             logger.error(f"Error handling rotary button press: {str(e)}")
 
-    def _toggle_primary_schedule(self, channel: int) -> None:
-        """Update schedule setting based on switch state.
+    def _on_switch_changed(self, channel: int) -> None:
+        """Set the schedule based on 3-state switch position.
         
-        Args:
-            channel: GPIO channel that triggered the event
+        Switch positions:
+        - OFF: Both pins LOW
+        - A: Pin 1 HIGH, Pin 2 LOW
+        - B: Pin 1 LOW, Pin 2 HIGH
         """
         try:
-            state = GPIO.input(self.SCHEDULE_PIN)
-            self.settings_manager.set_is_primary_schedule(state)
+            from backend.settings_manager import ScheduleType
             
-            # Log with more descriptive message
-            schedule_name = "Primary" if state else "Secondary"
-            logger.info(f"Schedule switched to: {schedule_name} (value={state})")
+            # Read both switch pins
+            pin1 = GPIO.input(self.PRIMARY_SCHEDULE_PIN)
+            pin2 = GPIO.input(self.SECONDARY_SCHEDULE_PIN)
             
-            # Broadcast schedule update via WebSocket
-            self._broadcast_schedule_update(state)
+            # Determine schedule state
+            if not pin1 and not pin2:
+                schedule = ScheduleType.OFF.value
+            elif pin1 and not pin2:
+                schedule = ScheduleType.A.value
+            elif not pin1 and pin2:
+                schedule = ScheduleType.B.value
+            else:
+                logger.warning("Invalid switch state (both pins HIGH)")
+                return
+            
+            # Update settings
+            self.settings_manager.set_schedule(schedule)
+            
+            # Log and broadcast update
+            logger.info(f"Schedule set to: {schedule} by switch (pin1={pin1}, pin2={pin2})")
+            
         except Exception as e:
-            logger.error(f"Error toggling schedule: {str(e)}")
+            logger.error(f"Error setting schedule: {str(e)}")
 
-    def _toggle_global_status(self, channel: int) -> None:
-        """Update global alarm status based on switch state.
-        
-        Args:
-            channel: GPIO channel that triggered the event
-        """
-        try:
-            state = GPIO.input(self.GLOBAL_PIN)
-            self.settings_manager.set_is_global_on(state)
-            
-            # Log with more descriptive message
-            status_text = "ON" if state else "OFF"
-            logger.info(f"Global alarm system turned {status_text} (value={state})")
-            
-            # Broadcast global status update via WebSocket
-            self._broadcast_global_status_update(state)
-        except Exception as e:
-            logger.error(f"Error toggling global status: {str(e)}")
-
-    def cleanup(self) -> None:
+    def _cleanup(self) -> None:
         """Clean up GPIO resources."""
         try:
             GPIO.cleanup()
@@ -250,42 +232,21 @@ class HardwareManager:
             logger.error(f"Error during GPIO cleanup: {str(e)}")
             raise
             
-    def _broadcast_schedule_update(self, is_primary: bool) -> None:
-        """Broadcast schedule update via WebSocket."""
-        try:
-            # Import here to avoid circular imports
-            from backend.websocket_manager import connection_manager
-            
-            # Run the broadcast in a background task to avoid blocking
-            asyncio.create_task(connection_manager.broadcast_schedule_update(is_primary))
-        except Exception as e:
-            logger.error(f"Failed to broadcast schedule update: {e}")
-    
-    def _broadcast_global_status_update(self, is_on: bool) -> None:
-        """Broadcast global status update via WebSocket."""
-        try:
-            # Import here to avoid circular imports
-            from backend.websocket_manager import connection_manager
-            
-            # Run the broadcast in a background task to avoid blocking
-            asyncio.create_task(connection_manager.broadcast_global_status_update(is_on))
-        except Exception as e:
-            logger.error(f"Failed to broadcast global status update: {e}")
-    
     def _broadcast_shutdown(self) -> None:
         """Broadcast system shutdown via WebSocket."""
         try:
             # Import here to avoid circular imports
-            from backend.websocket_manager import connection_manager
+            from backend.websocket_manager import web_socket_manager
             
             # Run the broadcast in a background task to avoid blocking
-            asyncio.create_task(connection_manager.broadcast_shutdown())
+            asyncio.create_task(web_socket_manager.broadcast_shutdown())
         except Exception as e:
             logger.error(f"Failed to broadcast shutdown: {e}")
 
+    # TODO add cleanup to exit and atexit.register(self.cleanup)
     def __del__(self) -> None:
         """Ensure cleanup on object destruction."""
-        self.cleanup()
+        self._cleanup()
 
     def start_system(self) -> None:
         """Start the system and wait for events."""
@@ -295,7 +256,7 @@ class HardwareManager:
                 time.sleep(1)
         except KeyboardInterrupt:
             logger.info("GPIO system shutting down...")
-            self.cleanup()
+            self._cleanup()
 
     def run(self) -> None:
         """Run the GPIO system in a separate thread."""

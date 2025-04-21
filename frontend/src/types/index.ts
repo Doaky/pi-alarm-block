@@ -3,7 +3,7 @@ export interface Alarm {
     hour: number;
     minute: number;
     days: number[];
-    is_primary_schedule: boolean;
+    schedule: string;
     active: boolean;
 }
 

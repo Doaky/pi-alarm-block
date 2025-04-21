@@ -1,31 +1,24 @@
-"""Main entry point for the Alarm Block application."""
-
-import logging
 from pathlib import Path
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
-# Configure logging first
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
 
 # Import config early to set up environment
 from backend.config import config, IS_RASPBERRY_PI, USE_PI_HARDWARE, DEV_MODE
 
 # Import dependencies
 from backend.dependencies import get_settings_manager, get_audio_manager, get_alarm_manager, get_hardware_manager, _instances
-from backend.settings_manager import SettingsManager
-from backend.audio_manager import AudioManager
-from backend.alarm_manager import AlarmManager
+from backend.services.settings_manager import SettingsManager
+from backend.services.audio_manager import AudioManager
+from backend.services.alarm_manager import AlarmManager
 
 # Import routes
 from backend.routes import alarm_routes, schedule_routes, system_routes
 from backend.routes.audio_routes import router as audio_router
 from backend.routes.websocket_routes import router as websocket_router
+
+from backend.utils.logging import get_logger
+logger = get_logger(__name__)
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -92,16 +85,9 @@ def initialize_managers():
     # Get instances of all managers in the correct order to resolve dependencies
     # First initialize settings_manager since others depend on it
     settings_manager = get_settings_manager()
-    
-    # Now manually pass the actual instance to audio_manager
-    if 'audio_manager' not in _instances:
-        from backend.audio_manager import AudioManager
-        _instances['audio_manager'] = AudioManager(settings_manager=settings_manager)
-    audio_manager = _instances['audio_manager']
-    
-    # Continue with other managers
-    hardware_manager = get_hardware_manager()
-    alarm_manager = get_alarm_manager()
+    audio_manager = get_audio_manager(settings_manager=settings_manager)
+    hardware_manager = get_hardware_manager(settings_manager=settings_manager, audio_manager=audio_manager)
+    alarm_manager = get_alarm_manager(settings_manager=settings_manager, audio_manager=audio_manager, hardware_manager=hardware_manager)
     
     logger.info("All managers initialized successfully")
     return {
@@ -136,10 +122,22 @@ else:
     logger.warning(f"Static directory {static_dir} does not exist")
 
 if __name__ == "__main__":
+
+    GREEN = "\033[32m"
+    RESET = "\033[0m"
+
+    print(GREEN + r"""
+         __    __      __    ____  __  __    ____  __    _____   ___  _  _ 
+        /__\  (  )    /__\  (  _ \(  \/  )  (  _ \(  )  (  _  ) / __)( )/ )
+       /(__)\  )(__  /(__)\  )   / )    (    ) _ < )(__  )(_)( ( (__  )  ( 
+      (__)(__)(____)(__)(__)(_)\_)(_/\/\_)  (____/(____)(_____) \___)(_)\_)
+    """ + RESET)
+
     import uvicorn
+
     # Only use reload in development mode
     if DEV_MODE:
-        logger.info("Starting server in development mode with auto-reload enabled")
+        logger.info("Starting server in development mode")
         uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=False)
     else:
         logger.info("Starting server in production mode")

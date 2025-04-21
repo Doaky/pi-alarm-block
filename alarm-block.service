@@ -1,6 +1,8 @@
 [Unit]
 Description=Alarm Block Service
-After=network.target
+Documentation=https://github.com/doaky/alarm-block
+After=network.target syslog.target
+Requires=syslog.service
 
 [Service]
 Type=simple
@@ -8,15 +10,36 @@ User=pi
 Group=pi
 WorkingDirectory=/opt/alarm-block
 Environment=PYTHONPATH=/opt/alarm-block
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 -m backend.main
 Restart=always
 RestartSec=3
 
+# Logging settings
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=alarm-block
+
 # Security settings
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/var/log/alarm-block /var/lib/alarm-block
+ProtectHome=read-only
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
 PrivateTmp=yes
+ReadWritePaths=/var/log/alarm-block /var/lib/alarm-block
+
+# Development mode
+; Environment=DEV_MODE=1
+; Environment=PYTHONUNBUFFERED=1
+; ExecStart=/usr/bin/python3 -X dev -m backend.main
+
+# Production mode
+Environment=DEV_MODE=0
+Environment=PYTHONOPTIMIZE=1
+ExecStart=/usr/bin/python3 -O -m backend.main
 
 [Install]
 WantedBy=multi-user.target

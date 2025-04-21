@@ -1,18 +1,36 @@
-"""Schedule-related route handlers."""
-
 import logging
-from fastapi import APIRouter, Depends
-from typing import Dict, Any
+from typing import Any, Dict, Literal
 
-from backend.settings_manager import SettingsManager
-from backend.utils.error_handler import ValidationError, AlarmBlockError
+from fastapi import APIRouter, Depends, status
+from pydantic import BaseModel
+
 from backend.dependencies import get_settings_manager
-from backend.websocket_manager import connection_manager
+from backend.services.settings_manager import SettingsManager
+from backend.services.websocket_manager import web_socket_manager
+from backend.utils.error_handler import AlarmBlockError, ValidationError
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(tags=["schedule"])
 
-@router.get("/schedule")
+class ScheduleResponse(BaseModel):
+    """Response model for schedule endpoints."""
+    schedule: Literal["a", "b", "off"]
+    
+class ScheduleUpdateResponse(BaseModel):
+    """Response model for schedule update endpoint."""
+    message: str
+    schedule: Literal["a", "b", "off"]
+
+@router.get(
+    "/schedule",
+    response_model=ScheduleResponse,
+    summary="Get current schedule",
+    description="Returns the current active schedule setting",
+    responses={
+        status.HTTP_200_OK: {"description": "Successfully retrieved schedule"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to fetch schedule"}
+    }
+)
 async def get_schedule(
     settings_manager: SettingsManager = Depends(get_settings_manager)
 ):
@@ -25,7 +43,17 @@ async def get_schedule(
         logger.error(f"Error fetching schedule: {str(e)}")
         raise AlarmBlockError("Failed to fetch schedule")
 
-@router.put("/schedule")
+@router.put(
+    "/schedule",
+    response_model=ScheduleUpdateResponse,
+    summary="Update schedule",
+    description="Updates the current schedule setting",
+    responses={
+        status.HTTP_200_OK: {"description": "Schedule updated successfully"},
+        status.HTTP_400_BAD_REQUEST: {"description": "Invalid schedule data"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to update schedule"}
+    }
+)
 async def set_schedule(
     schedule: Dict[str, Any],
     settings_manager: SettingsManager = Depends(get_settings_manager)
@@ -41,7 +69,7 @@ async def set_schedule(
         
         # Broadcast the schedule update to all connected clients
         # Use the schedule string directly
-        await connection_manager.broadcast_schedule_update(schedule["schedule"])
+        await web_socket_manager.broadcast_schedule_update(schedule["schedule"])
         
         return {"message": "Schedule updated successfully", "schedule": schedule["schedule"]}
     except ValidationError as e:

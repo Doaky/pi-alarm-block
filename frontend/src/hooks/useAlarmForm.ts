@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 export const useAlarmForm = (onAlarmSet: (alarm: Alarm) => void) => {
     const [selectedTime, setSelectedTime] = useState<dayjs.Dayjs | null>(dayjs().hour(7).minute(30).second(0));
     const [days, setDays] = useState<number[]>([]);
-    const [isPrimary, setIsPrimary] = useState(true);
+    const [schedule, setSchedule] = useState<"a" | "b">("a");
 
     const handleSetAlarm = async () => {
         if (!selectedTime) {
@@ -26,13 +26,15 @@ export const useAlarmForm = (onAlarmSet: (alarm: Alarm) => void) => {
             hour: selectedTime.hour(),
             minute: selectedTime.minute(),
             days: [...days].sort(),
-            is_primary_schedule: isPrimary,
+            schedule: schedule,
             active: true,
         };
 
         try {
-            const { alarm } = await setAlarm(newAlarm);
-            onAlarmSet(alarm);
+            await setAlarm(newAlarm);
+            onAlarmSet(newAlarm);
+
+            // console.log("Alarm set successfully:", alarm, newAlarm);
             toast.success("Alarm set successfully");
             
             // Reset form
@@ -49,8 +51,8 @@ export const useAlarmForm = (onAlarmSet: (alarm: Alarm) => void) => {
         setSelectedTime,
         days,
         setDays,
-        isPrimary,
-        setIsPrimary,
+        schedule,
+        setSchedule,
         handleSetAlarm
     };
 };

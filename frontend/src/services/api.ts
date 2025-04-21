@@ -31,7 +31,7 @@ export const setSchedule = async (schedule: ScheduleType): Promise<void> => {
 };
 
 export const setAlarm = async (alarm: Omit<Alarm, 'active'>): Promise<{ alarm: Alarm }> => {
-    const response = await fetch(`${API_URL}/api/v1/set-alarm`, {
+    const response = await fetch(`${API_URL}/api/v1/alarm`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(alarm),
@@ -40,6 +40,17 @@ export const setAlarm = async (alarm: Omit<Alarm, 'active'>): Promise<{ alarm: A
         throw new Error('Failed to set alarm');
     }
     return response.json();
+};
+
+export const deleteAlarm = async (alarmIds: string[]): Promise<void> => {
+    const response = await fetch(`${API_URL}/api/v1/alarms`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alarmIds }),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to delete alarms');
+    }
 };
 
 export const playAlarm = async (): Promise<void> => {

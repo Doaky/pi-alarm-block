@@ -1,12 +1,11 @@
 """Configuration settings for the Alarm Block application."""
 
 from pathlib import Path
-import os
-import sys
-import platform
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
-from typing import Optional, Dict, Any
+from backend.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Function to detect if running on a Raspberry Pi
 def is_raspberry_pi() -> bool:
@@ -49,11 +48,11 @@ try:
     (USER_DATA_DIR / "frontend").mkdir(exist_ok=True)
     PROJECT_DATA_DIR.mkdir(parents=True, exist_ok=True)
 except PermissionError:
-    print(f"Error: Permission denied when creating directories at {USER_DATA_DIR}")
-    print("Please ensure you have write permissions to this location or run with sudo.")
+    logger.error(f"Error: Permission denied when creating directories at {USER_DATA_DIR}")
+    logger.error("Please ensure you have write permissions to this location or run with sudo.")
     sys.exit(1)
 except Exception as e:
-    print(f"Error creating directories: {e}")
+    logger.error(f"Error creating directories: {e}")
     sys.exit(1)
 
 class LogConfig(BaseModel):
@@ -67,6 +66,18 @@ class LogConfig(BaseModel):
         description="Log format string"
     )
     level: str = Field("INFO", description="Logging level")
+    colored: bool = Field(
+        True,
+        description="Enable colored console output"
+    )
+    rotation: str = Field(
+        "monthly",  # 'daily', 'weekly', 'monthly'
+        description="Log rotation frequency"
+    )
+    backup_count: int = Field(
+        3,  # Keep 3 rotated files
+        description="Number of backup log files to keep"
+    )
 
 class ServerConfig(BaseModel):
     """Server configuration."""
@@ -109,7 +120,7 @@ try:
     if not config.log.file.exists():
         config.log.file.touch()
 except Exception as e:
-    print(f"Error creating log file: {e}")
+    logger.error(f"Error creating log file: {e}")
     sys.exit(1)
 
 # Ensure directories exist
@@ -119,7 +130,7 @@ try:
     if not config.server.frontend_dir.exists():
         config.server.frontend_dir.mkdir(parents=True, exist_ok=True)
 except Exception as e:
-    print(f"Error creating directories: {e}")
+    logger.error(f"Error creating directories: {e}")
 
 # Determine if we should use Raspberry Pi hardware features
 USE_PI_HARDWARE = (IS_RASPBERRY_PI or config.force_pi_mode) and not config.dev_mode

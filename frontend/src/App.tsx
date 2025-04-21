@@ -50,8 +50,8 @@ const App = () => {
         setSelectedTime,
         days,
         setDays,
-        isPrimary,
-        setIsPrimary,
+        schedule,
+        setSchedule,
         handleSetAlarm
     } = useAlarmForm((newAlarm) => setAlarms(prev => [...prev, newAlarm]));
 
@@ -85,8 +85,8 @@ const App = () => {
                         setSelectedTime={setSelectedTime}
                         days={days}
                         setDays={setDays}
-                        isPrimary={isPrimary}
-                        setIsPrimary={setIsPrimary}
+                        schedule={schedule}
+                        setSchedule={setSchedule}
                         handleSetAlarm={handleSetAlarm}
                         darkTheme={darkTheme}
                     />

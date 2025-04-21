@@ -39,7 +39,7 @@ export const AlarmList: FC<AlarmListProps> = ({
     const toggleAlarmActive = async (alarm: Alarm) => {
         const updatedAlarm = { ...alarm, active: !alarm.active };
         try {
-            const response = await fetch("/api/v1/set-alarm", {
+            const response = await fetch("/api/v1/alarm", {
                 method: "PUT",
                 body: JSON.stringify(updatedAlarm),
                 headers: { "Content-Type": "application/json" }
@@ -81,13 +81,16 @@ export const AlarmList: FC<AlarmListProps> = ({
         }
     };
 
+    console.log("pre sorted", alarms);
     // Sort alarms by time and schedule
     const sortedAlarms = [...alarms].sort((a, b) => {
-        if (a.is_primary_schedule !== b.is_primary_schedule) {
-            return a.is_primary_schedule ? -1 : 1;
+        if (a.schedule !== b.schedule) {
+            return a.schedule ? -1 : 1;
         }
         return a.hour * 60 + a.minute - (b.hour * 60 + b.minute);
     });
+
+    console.log("sorted", sortedAlarms);
 
     return (
         <div className="mb-8 p-4 bg-gray-800 rounded-lg shadow">
@@ -97,7 +100,7 @@ export const AlarmList: FC<AlarmListProps> = ({
             ) : (
                 <div className="space-y-2">
                     {sortedAlarms.map((alarm, index) => {
-                        const showDivider = index > 0 && alarm.is_primary_schedule !== sortedAlarms[index - 1].is_primary_schedule;
+                        const showDivider = index > 0 && alarm.schedule !== sortedAlarms[index - 1].schedule;
                         return (
                             <div key={alarm.id}>
                                 {showDivider && <Divider className="my-4 border-gray-600" />}
@@ -116,11 +119,11 @@ export const AlarmList: FC<AlarmListProps> = ({
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <span className={`px-2 py-1 rounded ${
-                                                alarm.is_primary_schedule
+                                                alarm.schedule === "a" 
                                                     ? 'bg-blue-500 text-white'
                                                     : 'bg-purple-500 text-white'
                                             }`}>
-                                                {alarm.is_primary_schedule ? 'Primary' : 'Secondary'}
+                                                {alarm.schedule === "a" ? 'Primary' : 'Secondary'}
                                             </span>
                                             <div
                                                 className={`status-chip ${alarm.active ? 'active' : 'inactive'}`}

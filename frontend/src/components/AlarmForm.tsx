@@ -11,8 +11,8 @@ interface AlarmFormProps {
     setSelectedTime: (time: dayjs.Dayjs | null) => void;
     days: number[];
     setDays: Dispatch<SetStateAction<number[]>>;
-    isPrimary: boolean;
-    setIsPrimary: (isPrimary: boolean) => void;
+    schedule: "a" | "b";
+    setSchedule: (schedule: "a" | "b") => void;
     handleSetAlarm: () => Promise<void>;
     darkTheme: Theme;
 }
@@ -22,8 +22,8 @@ export const AlarmForm: FC<AlarmFormProps> = ({
     setSelectedTime,
     days,
     setDays,
-    isPrimary,
-    setIsPrimary,
+    schedule,
+    setSchedule,
     handleSetAlarm,
     darkTheme
 }) => {
@@ -114,15 +114,15 @@ export const AlarmForm: FC<AlarmFormProps> = ({
             <div className="grid grid-cols-2 gap-4 mb-4">
                 <button
                     type="button"
-                    onClick={() => setIsPrimary(true)}
-                    className={`schedule-button primary ${isPrimary ? 'selected' : ''}`}
+                    onClick={() => setSchedule("a")}
+                    className={`schedule-button primary ${schedule === "a" ? 'selected' : ''}`}
                 >
                     Primary Schedule
                 </button>
                 <button
                     type="button"
-                    onClick={() => setIsPrimary(false)}
-                    className={`schedule-button secondary ${!isPrimary ? 'selected' : ''}`}
+                    onClick={() => setSchedule("b")}
+                    className={`schedule-button secondary ${schedule === "b" ? 'selected' : ''}`}
                 >
                     Secondary Schedule
                 </button>
