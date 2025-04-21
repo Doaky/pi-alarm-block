@@ -64,7 +64,7 @@ class WhiteNoiseAudio:
         except Exception as e:
             logger.error(f"Failed to load white noise sound: {str(e)}")
 
-    def play_white_noise(self, is_alarm_playing_callback=None) -> bool:
+    async def play_white_noise(self, is_alarm_playing_callback=None) -> bool:
         """
         Play white noise sound.
         
@@ -74,6 +74,11 @@ class WhiteNoiseAudio:
         Returns:
             bool: True if operation was successful, False otherwise
         """
+
+        # Check if already playing
+        if self.is_white_noise_playing():
+            logger.info("White noise is already playing")
+            return True
         
         # Validate sound is loaded (quick check first)
         if 'white_noise' not in self._sounds:
@@ -132,7 +137,7 @@ class WhiteNoiseAudio:
             logger.info("White noise started playing")
             
             # Broadcast white noise status update
-            web_socket_manager.broadcast_white_noise_status(True)
+            await web_socket_manager.broadcast_white_noise_status(True)
             return True
             
         except pygame.error as e:
@@ -150,7 +155,11 @@ class WhiteNoiseAudio:
         """
         Stop the currently playing white noise sound.
         """
-            
+        # Check if already stopped
+        if not self.is_white_noise_playing():
+            logger.info("White noise is already stopped")
+            return
+
         # Get current state with minimal locking
         channel = None
         was_playing = False
