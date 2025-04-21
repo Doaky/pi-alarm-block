@@ -164,8 +164,7 @@ async def white_noise(
         # Log with structured context
         logger.info(f"White noise {status_msg}", extra={
             "mode": mode,
-            "action": f"white_noise_{action.action.value}",
-            "is_playing": is_playing
+            "action": f"white_noise_{action.action.value}"
         })
         
         # Return standardized response

@@ -375,9 +375,6 @@ class AlarmManager:
         
             # Use audio_manager to play the alarm
             self.audio_manager.play_alarm()
-            
-            # Broadcast alarm status via WebSocket
-            web_socket_manager.broadcast_alarm_status(True)
 
         except Exception as e:
             logger.error(f"Error triggering alarm {alarm_id}: {str(e)}")

@@ -10,6 +10,8 @@ export const useAlarmForm = (onAlarmSet: (alarm: Alarm) => void) => {
     const [days, setDays] = useState<number[]>([]);
     const [schedule, setSchedule] = useState<"a" | "b">("a");
 
+    const convertToPythonDay = (uiDay: number): number => (uiDay + 6) % 7;
+
     const handleSetAlarm = async () => {
         if (!selectedTime) {
             toast.warning("Please select a time");
@@ -25,7 +27,7 @@ export const useAlarmForm = (onAlarmSet: (alarm: Alarm) => void) => {
             id: uuidv4(),
             hour: selectedTime.hour(),
             minute: selectedTime.minute(),
-            days: [...days].sort(),
+            days: [...days].map(convertToPythonDay).sort(),
             schedule: schedule,
             active: true,
         };
