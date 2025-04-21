@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 import pygame
 
 from backend.utils.logging import get_logger
-from backend.services.websocket_manager import WebSocketManager
+from backend.services.websocket_manager import web_socket_manager
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -164,7 +164,7 @@ class AlarmAudio:
                 
             logger.info(f"Alarm started playing: {selected_alarm_key}")
             
-            WebSocketManager.broadcast_alarm_status(True)
+            web_socket_manager.broadcast_alarm_status(True)
             return True
         except Exception as e:
             logger.error(f"Failed to play alarm: {str(e)}")
@@ -195,7 +195,7 @@ class AlarmAudio:
                 
         # Only broadcast if we actually stopped something
         if was_playing:
-            WebSocketManager.broadcast_alarm_status(False)
+            web_socket_manager.broadcast_alarm_status(False)
 
     def is_alarm_playing(self) -> bool:
         """Check if an alarm is currently playing."""

@@ -132,7 +132,7 @@ class WhiteNoiseAudio:
             logger.info("White noise started playing")
             
             # Broadcast white noise status update
-            WebSocketManager.broadcast_white_noise_status(True)
+            web_socket_manager.broadcast_white_noise_status(True)
             return True
             
         except pygame.error as e:

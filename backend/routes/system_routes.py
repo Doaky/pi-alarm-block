@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from fastapi.responses import PlainTextResponse
 
 from backend.config import config
-from backend.services.websocket_manager import WebSocketManager
+from backend.services.websocket_manager import web_socket_manager
 from backend.utils.logging import get_logger
 
 # Get module logger
@@ -137,7 +137,7 @@ async def shutdown_application() -> None:
     # First, broadcast shutdown notification to all connected clients
     try:
         logger.info("Broadcasting shutdown notification...")
-        await WebSocketManager.broadcast_shutdown()
+        await web_socket_manager.broadcast_shutdown()
         # Add a small delay to ensure the message is sent
         await asyncio.sleep(1)
         logger.info("Shutdown notification sent successfully")
