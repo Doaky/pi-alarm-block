@@ -5,7 +5,7 @@ from typing import Dict, Optional
 import pygame
 
 from backend.utils.logging import get_logger
-from backend.services.websocket_manager import WebSocketManager
+from backend.services.websocket_manager import web_socket_manager
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -172,7 +172,7 @@ class WhiteNoiseAudio:
         # Only broadcast if we actually stopped something
         if was_playing:
             # Broadcast white noise status update
-            WebSocketManager.broadcast_white_noise_status(False)
+            web_socket_manager.broadcast_white_noise_status(False)
 
     def adjust_volume(self, volume: int) -> None:
         """
@@ -212,7 +212,7 @@ class WhiteNoiseAudio:
                 
         logger.info(f"Volume set to {volume}%")
         
-        WebSocketManager.broadcast_volume_update(volume)
+        web_socket_manager.broadcast_volume_update(volume)
     
     def is_white_noise_playing(self) -> bool:
         """
