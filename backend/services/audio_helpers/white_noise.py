@@ -1,3 +1,4 @@
+import asyncio
 import os
 import threading
 from typing import Dict, Optional
@@ -64,7 +65,7 @@ class WhiteNoiseAudio:
         except Exception as e:
             logger.error(f"Failed to load white noise sound: {str(e)}")
 
-    async def play_white_noise(self, is_alarm_playing_callback=None) -> bool:
+    def play_white_noise(self, is_alarm_playing_callback=None) -> bool:
         """
         Play white noise sound.
         
@@ -137,7 +138,7 @@ class WhiteNoiseAudio:
             logger.info("White noise started playing")
             
             # Broadcast white noise status update
-            await web_socket_manager.broadcast_white_noise_status(True)
+            asyncio.create_task(web_socket_manager.broadcast_white_noise_status(True))
             return True
             
         except pygame.error as e:
@@ -151,7 +152,7 @@ class WhiteNoiseAudio:
                 self._white_noise_playing = False
             return False
 
-    async def stop_white_noise(self) -> None:
+    def stop_white_noise(self) -> None:
         """
         Stop the currently playing white noise sound.
         """
@@ -181,7 +182,7 @@ class WhiteNoiseAudio:
         # Only broadcast if we actually stopped something
         if was_playing:
             # Broadcast white noise status update
-            await web_socket_manager.broadcast_white_noise_status(False)
+            asyncio.create_task(web_socket_manager.broadcast_white_noise_status(False))
 
     def adjust_volume(self, volume: int) -> None:
         """
@@ -221,7 +222,7 @@ class WhiteNoiseAudio:
                 
         logger.info(f"Volume set to {volume}%")
         
-        web_socket_manager.broadcast_volume_update(volume)
+        asyncio.create_task(web_socket_manager.broadcast_volume_update(volume))
     
     def is_white_noise_playing(self) -> bool:
         """

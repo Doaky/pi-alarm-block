@@ -1,3 +1,4 @@
+import asyncio
 import os
 import random
 import threading
@@ -104,7 +105,7 @@ class AlarmAudio:
         except Exception as e:
             logger.error(f"Failed to load default alarm sound: {str(e)}")
 
-    async def play_alarm(self, white_noise_audio=None) -> bool:
+    def play_alarm(self, white_noise_audio=None) -> bool:
         """
         Play alarm sound.
         
@@ -164,13 +165,13 @@ class AlarmAudio:
             
             logger.info(f"Alarm started playing: {selected_alarm_key}")
             
-            await web_socket_manager.broadcast_alarm_status(True)
+            asyncio.create_task(web_socket_manager.broadcast_alarm_status(True))
             return True
         except Exception as e:
             logger.error(f"Failed to play alarm: {str(e)}")
             return False
 
-    async def stop_alarm(self) -> None:
+    def stop_alarm(self) -> None:
         """
         Stop the currently playing alarm sound.
         """
@@ -195,7 +196,7 @@ class AlarmAudio:
                 
         # Only broadcast if we actually stopped something
         if was_playing:
-            await web_socket_manager.broadcast_alarm_status(False)
+            asyncio.create_task(web_socket_manager.broadcast_alarm_status(False))
 
     def is_alarm_playing(self) -> bool:
         """Check if an alarm is currently playing."""

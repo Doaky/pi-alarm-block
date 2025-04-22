@@ -44,7 +44,7 @@ class VolumeControl(BaseModel):
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to play alarm"}
     }
 )
-async def play_alarm(
+def play_alarm(
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
@@ -86,7 +86,7 @@ async def play_alarm(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to stop alarm"}
     }
 )
-async def stop_alarm(
+def stop_alarm(
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
@@ -129,7 +129,7 @@ async def stop_alarm(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to control white noise"}
     }
 )
-async def white_noise(
+def white_noise(
     action: WhiteNoiseAction,
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
@@ -145,13 +145,13 @@ async def white_noise(
     try:
         # Let AudioManager handle the action based on the enum
         if action.action == NoiseAction.PLAY:
-            success = await audio_manager.play_white_noise()
+            success = audio_manager.play_white_noise()
             status_msg = "playing"
             
             if not success:
                 raise AlarmBlockError("Failed to play white noise")
         else:  # action.action == NoiseAction.STOP
-            success = await audio_manager.stop_white_noise()
+            success = audio_manager.stop_white_noise()
             status_msg = "stopped"
             
             if not success:
@@ -187,7 +187,7 @@ async def white_noise(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to set volume"}
     }
 )
-async def set_volume(
+def set_volume(
     volume_control: VolumeControl,
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
@@ -234,7 +234,7 @@ async def set_volume(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to get white noise status"}
     }
 )
-async def get_white_noise_status(
+def get_white_noise_status(
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
@@ -276,7 +276,7 @@ async def get_white_noise_status(
         500: {"description": "Failed to get volume level"}
     }
 )
-async def get_volume(
+def get_volume(
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
@@ -312,7 +312,7 @@ async def get_volume(
         500: {"description": "Failed to get alarm status"}
     }
 )
-async def get_alarm_status(
+def get_alarm_status(
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
