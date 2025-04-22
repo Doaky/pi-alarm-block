@@ -177,8 +177,8 @@ def white_noise(
         raise AlarmBlockError("Failed to control white noise")
 
 @router.post("/volume", 
-    summary="Set volume",
-    description="Set the volume level for audio playback",
+    summary="Set volume level",
+    description="Sets the volume level for audio playback",
     response_description="Message indicating the volume has been set",
     response_model=AudioResponse,
     responses={
@@ -187,7 +187,7 @@ def white_noise(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to set volume"}
     }
 )
-def set_volume(
+async def set_volume(
     volume_control: VolumeControl,
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
@@ -200,16 +200,20 @@ def set_volume(
         AudioResponse: Message indicating the volume has been set
     """
     try:
-        # Pydantic handles validation, AudioManager handles the rest
-        audio_manager.adjust_volume(volume_control.volume)
+        # Validate volume range (0-100)
+        volume = volume_control.volume
+        if not 0 <= volume <= 100:
+            raise ValidationError("Volume must be between 0 and 100")
+            
+        # Set volume through audio manager
+        audio_manager.adjust_volume(volume)
         
         # Determine mode for logging and response
         mode = "development" if not USE_PI_HARDWARE else "hardware"
-        volume = volume_control.volume
-        message = f"Volume set to {volume}{' (development mode)' if not USE_PI_HARDWARE else ''}"
+        message = f"Volume set to {volume}%{' (development mode)' if not USE_PI_HARDWARE else ''}"
         
         # Log with structured context
-        logger.info(f"Volume set to {volume}", extra={
+        logger.info(f"Volume set to {volume}%", extra={
             "mode": mode,
             "action": "set_volume",
             "volume": volume

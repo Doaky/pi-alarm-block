@@ -126,7 +126,17 @@ class SettingsManager:
                 new_schedule = self._settings.schedule.value
             self._save_settings()  # No lock held
             logger.info(f"Schedule set to: {new_schedule}")
-            asyncio.create_task(web_socket_manager.broadcast_schedule_update(new_schedule))
+            
+            # Handle asyncio task creation properly
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(web_socket_manager.broadcast_schedule_update(new_schedule))
+                else:
+                    # For non-async contexts, run in a new thread or skip if not critical
+                    asyncio.run(web_socket_manager.broadcast_schedule_update(new_schedule))
+            except RuntimeError as e:
+                logger.warning(f"Could not broadcast schedule update: {e}")
         except Exception as e:
             logger.error(f"Failed to set schedule: {e}")
             raise ValueError(f"Invalid schedule type: {e}")
@@ -157,7 +167,17 @@ class SettingsManager:
                 self._settings.volume = volume
             self._save_settings()  # No lock held
             logger.info(f"Volume set to: {volume}%")
-            asyncio.create_task(web_socket_manager.broadcast_volume_update(volume))
+            
+            # Handle asyncio task creation properly
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(web_socket_manager.broadcast_volume_update(volume))
+                else:
+                    # For non-async contexts, run in a new thread or skip if not critical
+                    asyncio.run(web_socket_manager.broadcast_volume_update(volume))
+            except RuntimeError as e:
+                logger.warning(f"Could not broadcast volume update: {e}")
         except Exception as e:
             logger.error(f"Failed to set volume: {e}")
             raise ValueError(f"Invalid volume level: {e}")
