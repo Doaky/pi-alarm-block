@@ -8,6 +8,16 @@ This package contains the core components of the Alarm Block application:
 - Hardware interaction (when in production mode)
 """
 
+GREEN = "\033[32m"
+RESET = "\033[0m"
+
+print(GREEN + r"""
+     __    __      __    ____  __  __    ____  __    _____   ___  _  _ 
+    /__\  (  )    /__\  (  _ \(  \/  )  (  _ \(  )  (  _  ) / __)( )/ )
+   /(__)\  )(__  /(__)\  )   / )    (    ) _ < )(__  )(_)( ( (__  )  ( 
+  (__)(__)(____)(__)(__)(_)\_)(_/\/\_)  (____/(____)(_____) \___)(_)\_)
+""" + RESET)
+
 # Version management
 __version__ = "0.1.0"
 

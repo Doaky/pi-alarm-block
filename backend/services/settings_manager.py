@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -125,7 +126,7 @@ class SettingsManager:
                 new_schedule = self._settings.schedule.value
             self._save_settings()  # No lock held
             logger.info(f"Schedule set to: {new_schedule}")
-            web_socket_manager.broadcast_schedule_update(new_schedule)
+            asyncio.create_task(web_socket_manager.broadcast_schedule_update(new_schedule))
         except Exception as e:
             logger.error(f"Failed to set schedule: {e}")
             raise ValueError(f"Invalid schedule type: {e}")
@@ -156,7 +157,7 @@ class SettingsManager:
                 self._settings.volume = volume
             self._save_settings()  # No lock held
             logger.info(f"Volume set to: {volume}%")
-            web_socket_manager.broadcast_volume_update(volume)
+            asyncio.create_task(web_socket_manager.broadcast_volume_update(volume))
         except Exception as e:
             logger.error(f"Failed to set volume: {e}")
             raise ValueError(f"Invalid volume level: {e}")

@@ -122,17 +122,6 @@ else:
     logger.warning(f"Static directory {static_dir} does not exist")
 
 if __name__ == "__main__":
-
-    GREEN = "\033[32m"
-    RESET = "\033[0m"
-
-    print(GREEN + r"""
-         __    __      __    ____  __  __    ____  __    _____   ___  _  _ 
-        /__\  (  )    /__\  (  _ \(  \/  )  (  _ \(  )  (  _  ) / __)( )/ )
-       /(__)\  )(__  /(__)\  )   / )    (    ) _ < )(__  )(_)( ( (__  )  ( 
-      (__)(__)(____)(__)(__)(_)\_)(_/\/\_)  (____/(____)(_____) \___)(_)\_)
-    """ + RESET)
-
     import uvicorn
 
     # Only use reload in development mode
