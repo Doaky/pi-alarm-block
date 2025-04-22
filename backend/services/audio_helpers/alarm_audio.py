@@ -165,16 +165,8 @@ class AlarmAudio:
             
             logger.info(f"Alarm started playing: {selected_alarm_key}")
             
-            # Handle asyncio task creation properly
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(web_socket_manager.broadcast_alarm_status(True))
-                else:
-                    # For non-async contexts, run in a new thread or skip if not critical
-                    asyncio.run(web_socket_manager.broadcast_alarm_status(True))
-            except RuntimeError as e:
-                logger.warning(f"Could not broadcast alarm status update: {e}")
+            # Use the safe broadcast method for thread-safe broadcasting
+            web_socket_manager.safe_broadcast(web_socket_manager.broadcast_alarm_status, True)
                 
             return True
         except Exception as e:
@@ -206,16 +198,8 @@ class AlarmAudio:
                 
         # Only broadcast if we actually stopped something
         if was_playing:
-            # Handle asyncio task creation properly
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(web_socket_manager.broadcast_alarm_status(False))
-                else:
-                    # For non-async contexts, run in a new thread or skip if not critical
-                    asyncio.run(web_socket_manager.broadcast_alarm_status(False))
-            except RuntimeError as e:
-                logger.warning(f"Could not broadcast alarm status update: {e}")
+            # Use the safe broadcast method for thread-safe broadcasting
+            web_socket_manager.safe_broadcast(web_socket_manager.broadcast_alarm_status, False)
 
     def is_alarm_playing(self) -> bool:
         """Check if an alarm is currently playing."""

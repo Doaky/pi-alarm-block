@@ -141,8 +141,9 @@ class WhiteNoiseAudio:
                 
             logger.info("White noise started playing")
             
-            # Broadcast white noise status update
-            asyncio.create_task(web_socket_manager.broadcast_white_noise_status(True))
+            # Use the safe broadcast method for thread-safe broadcasting
+            web_socket_manager.safe_broadcast(web_socket_manager.broadcast_white_noise_status, True)
+                
             return True
             
         except pygame.error as e:
@@ -185,8 +186,8 @@ class WhiteNoiseAudio:
                 
         # Only broadcast if we actually stopped something
         if was_playing:
-            # Broadcast white noise status update
-            asyncio.create_task(web_socket_manager.broadcast_white_noise_status(False))
+            # Use the safe broadcast method for thread-safe broadcasting
+            web_socket_manager.safe_broadcast(web_socket_manager.broadcast_white_noise_status, False)
 
     def adjust_volume(self, volume: int) -> None:
         """
@@ -226,16 +227,8 @@ class WhiteNoiseAudio:
                 
         logger.info(f"Volume set to {volume}%")
         
-        # Handle asyncio task creation properly
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(web_socket_manager.broadcast_volume_update(volume))
-            else:
-                # For non-async contexts, run in a new thread or skip if not critical
-                asyncio.run(web_socket_manager.broadcast_volume_update(volume))
-        except RuntimeError as e:
-            logger.warning(f"Could not broadcast volume update: {e}")
+        # Use the safe broadcast method for thread-safe broadcasting
+        web_socket_manager.safe_broadcast(web_socket_manager.broadcast_volume_update, volume)
     
     def is_white_noise_playing(self) -> bool:
         """

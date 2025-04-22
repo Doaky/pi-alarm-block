@@ -44,7 +44,7 @@ class VolumeControl(BaseModel):
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to play alarm"}
     }
 )
-def play_alarm(
+async def play_alarm(
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
@@ -86,7 +86,7 @@ def play_alarm(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to stop alarm"}
     }
 )
-def stop_alarm(
+async def stop_alarm(
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):
     """
@@ -129,7 +129,7 @@ def stop_alarm(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Failed to control white noise"}
     }
 )
-def white_noise(
+async def white_noise(
     action: WhiteNoiseAction,
     audio_manager: AudioManager = Depends(get_audio_manager)
 ):

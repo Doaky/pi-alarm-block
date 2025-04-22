@@ -2,7 +2,8 @@ import asyncio
 import json
 import logging
 import time
-from typing import Dict, List, Any
+import threading
+from typing import Dict, List, Any, Callable, Optional
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -18,6 +19,8 @@ class WebSocketManager:
         self.active_connections: List[WebSocket] = []
         self._lock = asyncio.Lock()
         self.LAST_BROADCAST_TIME = time.time()
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._thread_id = threading.get_ident()
     
     async def connect(self, websocket: WebSocket):
         """Accept a new WebSocket connection.
@@ -183,6 +186,41 @@ class WebSocketManager:
             }
         }
         await self._broadcast(message)
+
+    def safe_broadcast(self, broadcast_func: Callable, *args, **kwargs) -> None:
+        """
+        Safely handle broadcasting in both async and non-async contexts.
+        
+        This method ensures that broadcasts work regardless of whether they're called
+        from an async context or a different thread.
+        
+        Args:
+            broadcast_func: The async broadcast function to call
+            *args, **kwargs: Arguments to pass to the broadcast function
+        """
+        try:
+            # Check if we're in the same thread as the event loop
+            current_thread = threading.get_ident()
+            
+            # Try to get the current event loop
+            try:
+                loop = asyncio.get_event_loop()
+                
+                # If we're in the same thread as the loop and it's running, create a task
+                if loop.is_running():
+                    if current_thread == self._thread_id:
+                        asyncio.create_task(broadcast_func(*args, **kwargs))
+                    else:
+                        # We're in a different thread, so we need to use call_soon_threadsafe
+                        loop.call_soon_threadsafe(
+                            lambda: asyncio.create_task(broadcast_func(*args, **kwargs))
+                        )
+                else:
+                    logger.warning("Event loop is not running, broadcast skipped")
+            except RuntimeError:
+                logger.warning("No running event loop, broadcast skipped")
+        except Exception as e:
+            logger.warning(f"Failed to broadcast: {e}")
 
 # Create a singleton instance
 web_socket_manager = WebSocketManager()
